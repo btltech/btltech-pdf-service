@@ -83,7 +83,14 @@ export async function editRun({ bytes, pageIndex = 0, runIndex, newText }) {
   const spacing = E.usesInternalSpacing(model, run);
   if (spacing) return notEditable(`This line is spaced out inside a single piece of text (a ${spacing.gap}pt gap in ${spacing.em}pt text, around ${JSON.stringify(spacing.around)}). Re-setting it would collapse that spacing.`);
   const justified = E.isJustifiedLine(model, run);
-  if (justified) return notEditable(`This line is justified - its word gaps are ${justified.extraPercent}% wider than normal (${justified.wordGap}pt against ${justified.normalGap}pt). Re-setting it would lose the stretched spacing.`);
+  if (justified) {
+    // Say which evidence found it. A line detected by the shape of its block is
+    // often barely stretched at all, so quoting a "1% wider" gap figure there
+    // would read as nonsense and undersell a real reason to refuse.
+    return notEditable(justified.flushRight
+      ? "This line is part of a justified paragraph - every line but the last reaches the right margin exactly. Re-setting it would leave it short of the margin and the paragraph would no longer line up."
+      : `This line is justified - its word gaps are ${justified.extraPercent}% wider than normal (${justified.wordGap}pt against ${justified.normalGap}pt). Re-setting it would lose the stretched spacing.`);
+  }
   const sp = E.scriptProblem(run.text) || E.scriptProblem(newText);
   if (sp) return notEditable(`This tool cannot re-set ${sp}.`);
 

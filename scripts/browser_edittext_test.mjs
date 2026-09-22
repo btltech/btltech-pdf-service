@@ -121,6 +121,21 @@ let status = await statusText();
 check("Chinese text is refused", /Chinese/.test(status), status.slice(0, 80));
 check("nothing is offered for download after a refusal", await page.evaluate(() => document.getElementById("save").disabled));
 
+// A justified paragraph must be refused: re-setting one of its lines would leave
+// it short of the right margin while the rest of the paragraph stays flush.
+const just = (await runs()).findIndex((t) => t.includes("The supplier shall provide"));
+await selectRun(just);
+await typeAndPreview("The supplier shall provide the amended services described in the schedule with");
+status = await statusText();
+check("a justified paragraph is refused", /justified paragraph/.test(status), status.slice(0, 90));
+check("the refusal does not quote a nonsense gap figure", !/0% wider|1% wider|-\d+% wider/.test(status), status.slice(0, 60));
+
+// its last line is short by design and safe to edit
+const lastLine = (await runs()).findIndex((t) => t.includes("of the client, such consent"));
+await selectRun(lastLine);
+await typeAndPreview("of the client, such consent not to be unreasonably refused or delayed.");
+check("the last line of a justified paragraph stays editable", await page.evaluate(() => !document.getElementById("save").disabled), await statusText());
+
 await page.click("#next");
 await page.waitForFunction(() => document.getElementById("pagelabel").textContent.includes("2 of 2"), null, { timeout: 15000 });
 status = await statusText();
@@ -133,13 +148,7 @@ await page.waitForFunction(() => document.getElementById("pagelabel").textConten
 const again = (await runs()).findIndex((t) => t.includes("Client"));
 await selectRun(again);
 await typeAndPreview("Client: Eastgate Holdings Limited");
-const accepted = await page.evaluate(() => !document.getElementById("save").disabled);
-if (!accepted) {
-  // The frozen engine refuses this particular line as justified; see PORTING.md.
-  // Fall back to a line it accepts so the download itself is still exercised.
-  await selectRun((await runs()).findIndex((t) => t.includes("Reference")));
-  await typeAndPreview("Reference: NW-3480");
-}
+check("a short left-aligned line is NOT mistaken for justified", await page.evaluate(() => !document.getElementById("save").disabled), await statusText());
 check("an edit is ready to save", await page.evaluate(() => !document.getElementById("save").disabled), await statusText());
 const [download] = await Promise.all([page.waitForEvent("download"), page.click("#save")]);
 await download.saveAs(OUTPUT);

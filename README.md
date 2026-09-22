@@ -176,22 +176,30 @@ around it. That is a V2 question and deliberately out of scope here.
 ### The frozen reference
 
 The seven corpora and the 133 recorded hashes live outside this repository, in a
-snapshot at `~/btltech-pdf-editor-reference` (override with `EDITTEXT_REFERENCE`).
+snapshot at `~/btltech-pdf-editor-reference-frozen9` (override with `EDITTEXT_REFERENCE`), with the previous FROZEN8 snapshot kept beside it.
 They are third-party PDFs downloaded for testing: fine to keep privately, not ours
 to publish under the AGPL. Without that snapshot the regression suite reports that
 it was skipped rather than passing on nothing.
 
-    python3 ~/btltech-pdf-editor-reference/verify_frozen.py   # the snapshot is intact
+    python3 ~/btltech-pdf-editor-reference-frozen9/verify_frozen.py   # the snapshot is intact
     node scripts/regression_edittext.mjs                      # the shipped code matches it
 
-### Known limitations
+### The justified detector, and why the reference moved to FROZEN9
 
-`static/edittext/PORTING.md` records two properties of the frozen engine found while
-building the test fixture: a short left-aligned line can occasionally be refused as
-"justified" (it fails safe, but the customer is told something untrue), and a
-genuinely justified line can be missed. Both come from a word-gap statistic that is
-noisy on lines with few gaps. Neither appeared in the seven real-world corpora. The
-detector deserves its own targeted corpus before this feature is charged for.
+The first fixture caught the detector being wrong in both directions: a plain
+left-aligned line refused as justified, and a real justified paragraph missed. It
+was measuring word gaps by walking the page's text index, which on a multi-column
+page walks from one column into another, and it was judging on the gap ratio alone,
+which barely moves on a justified line whose words nearly fill it.
+
+Characters are now chosen by position rather than by text index, and the primary
+test is the shape of the block - every line but the last reaching the right margin
+exactly - with the gap ratio kept for lines that have no block. The last line of a
+justified paragraph stays editable, because editing it cannot break the alignment.
+
+Across the seven corpora that lifted 12 wrong refusals and added 1 correct one, and
+the independent PyMuPDF verifier reports 0 problem outputs. `FROZEN9` records the
+result; `FROZEN8` is kept unchanged beside it as the before picture.
 
 ## Testing
 
@@ -207,9 +215,9 @@ scripts/run_tests.sh --browser     # everything; omit --browser for the Python s
 | Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
 | The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
 | Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 15 |
-| Edit existing text in real Chrome: open, select, preview, refusals, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 22 |
+| Edit existing text in real Chrome: open, select, preview, refusals, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 26 |
 | That editor's saved PDF, read back with PyMuPDF | `scripts/verify_edittext_output.py` | 8 |
-| The shipped edit-text engine against the frozen FROZEN8 reference | `scripts/regression_edittext.mjs` | 128 outputs |
+| The shipped edit-text engine against the frozen FROZEN9 reference | `scripts/regression_edittext.mjs` | 134 outputs |
 | Release: AGPL notices, source offer on every page, source ZIP contents, pdf.js setting, dependency split, separation from other software, conversion kept out of the server process | `scripts/test_release.py` | 21 |
 
 The first four are the original 73 assertions. The editor-output and page-tools UI checks used to be

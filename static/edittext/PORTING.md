@@ -5,7 +5,8 @@ snapshot). Everything that decides whether an edit is safe is untouched. This fi
 records every difference, so that "it is the frozen engine" is a claim anyone can
 check rather than one they have to take on trust.
 
-Check it yourself:
+Check the port itself against FROZEN8 (this shows the I/O changes, and now also
+the justified-detector fix described at the end of this file):
 
     diff -a ~/btltech-pdf-editor-reference/engine/engine4.mjs static/edittext/engine.mjs
 
@@ -37,23 +38,37 @@ font turns out not to draw the replacement and a substitute is tried, FROZEN8 do
 behaviour change, and behaviour changes belong in their own tested step rather than
 being smuggled in with a port.
 
-## Two things the fixture exposed about the frozen engine
+## The justified detector was fixed after the port (FROZEN8 -> FROZEN9)
 
-Found while building the browser suite, on `scripts/make_edittext_pdf.py`'s fixture.
-Both are properties of FROZEN8 itself - the diff above shows the detector code is
-byte-identical - and both are recorded rather than quietly patched, because changing
-a threshold means re-validating all seven corpora.
+The fixture exposed two faults in the frozen detector, in opposite directions: a
+plain left-aligned line was refused as justified, and a genuinely justified
+paragraph was missed. Both were real, both are fixed, and the fix is the reason the
+reference moved from FROZEN8 to FROZEN9.
 
-1. **A plain line can be refused as justified.** `Client: Northwood Services Ltd`
-   measures word gaps 9% wider than normal, just over the 8% threshold, on a line
-   with only three gaps. The customer is told the line is justified when it is not.
-   It fails safe - nothing is damaged, the edit is refused - but it is a refusal
-   they did not deserve.
-2. **A genuinely justified line can be missed.** The justified paragraph in the
-   fixture is not detected, and is edited as though it were ordinary text.
+**It measured the wrong characters.** To find a line's word gaps it searched the
+page's text for the line's first 16 characters and walked forward by index. Reading
+order is not layout order: on a multi-column page that walk stepped from one column
+into the next and counted the space between columns as a word gap. On a dictionary
+page of 105,000 characters it reported ordinary sentences as stretched by 150% or
+more. Characters are now selected by where they sit - inside the run's own box - so
+the measurement matches what a reader sees. That change alone took the firing rate
+across the seven corpora from 21% of all lines to 9%.
 
-Neither showed up across the seven real-world corpora, which is why the threshold
-sits where it does. The statistic is simply noisy on lines with few word gaps.
-Before this feature is charged for, the justified detector deserves its own targeted
-corpus - documents that are justified, and documents with short left-aligned lines -
-and a rule that accounts for how many gaps it is averaging over.
+**It asked the wrong question.** The gap ratio is a weak signal, because a
+justified line whose words nearly fill it is barely stretched: the fixture's
+justified paragraph measured 1.07, under the 1.08 threshold, while being obviously
+justified to the eye. What defines justified text is the shape of the block - every
+line but the last reaching the right margin exactly. That is now the primary test,
+with the gap ratio kept only for a line with no block to belong to (a dictionary
+entry with a hanging indent, for instance). The last line of a justified paragraph
+is short by design, so it is excluded from the test and stays editable: editing it
+cannot break the paragraph's appearance.
+
+Across the seven corpora this lifted 12 refusals and added 1. The one addition is
+`corpus7/d10`, a European Commission contract with three lines flush at x=552.7 and
+a short last line: FROZEN8 edited it, which was wrong. Independent verification
+with PyMuPDF reports 0 problem outputs in all seven corpora.
+
+The customer-facing wording branches on which evidence found the line, because
+quoting "word gaps are 1% wider than normal" for a line detected by block shape
+would read as nonsense and undersell a real reason to refuse.

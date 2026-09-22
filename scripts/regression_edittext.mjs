@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 BTLTECH LTD
 //
-// Edit Existing Text regression: does the shipped code still produce FROZEN8?
+// Edit Existing Text regression: does the shipped code still produce FROZEN9?
 //
 // The seven test corpora and the 133 recorded hashes live outside this repository,
 // in the frozen reference snapshot, because they are third-party PDFs that BTLTECH
 // may keep for testing but may not redistribute. Point EDITTEXT_REFERENCE at that
-// snapshot (default ~/btltech-pdf-editor-reference); without it this suite reports
+// snapshot (default ~/btltech-pdf-editor-reference-frozen9); without it this reports
 // that it was skipped rather than passing vacuously.
 //
 //   node scripts/regression_edittext.mjs            every corpus
 //   node scripts/regression_edittext.mjs corpus8    one of them
+//
+// With --write <dir> it does not compare: it writes each corpus's outputs and a
+// results4.json into <dir>, which is how a new freeze is produced and handed to
+// the independent PyMuPDF verifier. Comparing and re-freezing are deliberately
+// separate: a run that writes a new reference must never be able to report PASS.
 //
 // It drives static/edittext/workflow.mjs - the same module the browser uses - so a
 // pass here is a statement about the customer's editor, not about a copy of it.
@@ -22,24 +27,29 @@ import { createRequire } from "node:module";
 import * as E from "../static/edittext/engine.mjs";
 import * as W from "../static/edittext/workflow.mjs";
 
-const REF = process.env.EDITTEXT_REFERENCE || path.join(os.homedir(), "btltech-pdf-editor-reference");
+const REF = process.env.EDITTEXT_REFERENCE || path.join(os.homedir(), "btltech-pdf-editor-reference-frozen9");
+const LISTING = process.env.EDITTEXT_LISTING || "FROZEN9.sha256";
 const CORPORA = ["corpus", "corpus3", "corpus4", "corpus5", "corpus6", "corpus7", "corpus8"];
-const only = process.argv[2] ? [process.argv[2]] : CORPORA;
+const args = process.argv.slice(2);
+const writeAt = args.includes("--write") ? args[args.indexOf("--write") + 1] : null;
+const named = args.filter((a) => !a.startsWith("--") && a !== writeAt);
+const only = named.length ? named : CORPORA;
 const sha = (b) => crypto.createHash("sha256").update(b).digest("hex");
 
-if (!fs.existsSync(path.join(REF, "engine", "FROZEN8.sha256"))) {
+if (!writeAt && !fs.existsSync(path.join(REF, "engine", LISTING))) {
   console.log(`SKIPPED: no frozen reference at ${REF}`);
   console.log("Set EDITTEXT_REFERENCE to the snapshot directory to run this suite.");
   process.exit(0);
 }
 
-// FROZEN8 records output paths as ../corpusN/out4/<id>-<variant>.pdf
+// The listing records output paths as corpora/<corpus>/out4/<id>-<variant>.pdf
 const frozen = new Map();
-for (const line of fs.readFileSync(path.join(REF, "engine", "FROZEN8.sha256"), "utf8").split("\n")) {
+const listing = path.join(REF, "engine", LISTING);
+for (const line of (fs.existsSync(listing) ? fs.readFileSync(listing, "utf8") : "").split("\n")) {
   if (!line.trim()) continue;
   const [hash, p] = line.trim().split(/\s+/, 2);
-  const m = p.match(/\.\.\/(corpus\d*)\/out4\/(.+)$/) || p.match(/^\.\/out4\/(.+)$/);
-  if (m) frozen.set(m.length === 3 && m[2] ? `${m[1]}/${m[2]}` : `corpus/${m[1]}`, hash);
+  const m = p.match(/corpora\/(corpus\d*)\/out4\/(.+)$/) || p.match(/\.\.\/(corpus\d*)\/out4\/(.+)$/);
+  if (m) frozen.set(`${m[1]}/${m[2]}`, hash);
 }
 
 /** Select the run the same way the frozen harness did, with its selection gates. */
@@ -81,8 +91,10 @@ for (const corpus of only) {
   const dir = path.join(REF, "corpora", corpus);
   if (!fs.existsSync(dir)) { console.log(`  ${corpus}: not in the reference, skipped`); continue; }
   const cases = JSON.parse(fs.readFileSync(path.join(dir, "cases.json"), "utf8"));
+  const written = new Map(), rows = [];
   for (const c of cases) {
     const bytes = new Uint8Array(fs.readFileSync(path.join(dir, "pdf", c.file)));
+    const row = { id: c.id, file: c.file, find: c.find };
     for (const variant of ["short", "long"]) {
       const open = W.openAndAnalyse(bytes);
       const pick = select(open, c.find);
@@ -97,33 +109,50 @@ for (const corpus of only) {
       }
       const outcome = (res.outcome || "?").split(" (")[0].split(" after")[0];
       counts[outcome] = (counts[outcome] || 0) + 1;
+      row[variant] = { outcome: res.outcome, action: res.action, reason: res.reason, integrity: res.integrity, font: res.font, decorations: res.decorations, selfCheck: res.selfCheck };
+      if (writeAt && res.savedBytes) written.set(`${c.id}-${variant}.pdf`, res.savedBytes);
 
       const key = `${corpus}/${c.id}-${variant}.pdf`;
       const want = frozen.get(key);
       if (res.savedBytes) {
         files++;
         const got = sha(res.savedBytes);
-        if (!want) missingFrozen.push(`${key} (produced now, not in FROZEN8)`);
+        if (!want) missingFrozen.push(`${key} (produced now, not in the frozen reference)`);
         else if (got === want) matched++;
         else if (isForm) {
           const why = await sameFormContent(res.savedBytes, path.join(dir, "out4", `${c.id}-${variant}.pdf`));
           if (why) mismatched.push(`${key}: ${why}`); else byContent++;
         } else mismatched.push(`${key}: ${got.slice(0, 12)} != frozen ${want.slice(0, 12)}`);
       } else if (want) {
-        mismatched.push(`${key}: FROZEN8 has a saved file, this run produced none (${outcome}${res.reason ? ": " + res.reason.slice(0, 60) : ""})`);
+        mismatched.push(`${key}: the frozen reference has a saved file, this run produced none (${outcome}${res.reason ? ": " + res.reason.slice(0, 60) : ""})`);
       }
     }
+    rows.push(row);
+  }
+  if (writeAt) {
+    const dir2 = path.join(writeAt, corpus);
+    fs.mkdirSync(path.join(dir2, "out4"), { recursive: true });
+    fs.cpSync(path.join(dir, "pdf"), path.join(dir2, "pdf"), { recursive: true });
+    fs.copyFileSync(path.join(dir, "cases.json"), path.join(dir2, "cases.json"));
+    for (const [name, bytes] of written) fs.writeFileSync(path.join(dir2, "out4", name), bytes);
+    fs.writeFileSync(path.join(dir2, "results4.json"), JSON.stringify(rows, null, 1));
+    written.clear(); rows.length = 0;
   }
   process.stdout.write(`  ${corpus} done\n`);
 }
 
 console.log(`\noutcomes: ${JSON.stringify(counts)}`);
-console.log(`saved files: ${files}, byte-identical to FROZEN8: ${matched}` + (byContent ? `, form-field files matching by content (not byte-reproducible): ${byContent}` : ""));
+console.log(`saved files: ${files}, byte-identical to the frozen reference: ${matched}` + (byContent ? `, form-field files matching by content (not byte-reproducible): ${byContent}` : ""));
 if (missingFrozen.length) { console.log(`\nnot recorded in FROZEN8 (${missingFrozen.length}):`); missingFrozen.slice(0, 10).forEach((m) => console.log("  " + m)); }
 if (mismatched.length) { console.log(`\nDIFFERENCES FROM THE FROZEN REFERENCE (${mismatched.length}):`); mismatched.slice(0, 20).forEach((m) => console.log("  " + m)); }
 
+if (writeAt) {
+  console.log(`\nwrote a new candidate reference to ${writeAt}`);
+  console.log("This run did not compare against anything. Verify it independently before freezing it.");
+  process.exit(0);
+}
 const ok = !mismatched.length && !missingFrozen.length;
 console.log(ok
-  ? `\nPASS: the shipped engine reproduces FROZEN8 (${matched} byte-identical${byContent ? `, ${byContent} form-field by content` : ""}, ${counts.BLOCKED || 0} blocked, ${counts.UNSUPPORTED || 0} unsupported, ${counts.REFUSED || 0} refused)`
-  : "\nFAIL: the shipped engine no longer reproduces FROZEN8");
+  ? `\nPASS: the shipped engine reproduces the frozen reference (${matched} byte-identical${byContent ? `, ${byContent} form-field by content` : ""}, ${counts.BLOCKED || 0} blocked, ${counts.UNSUPPORTED || 0} unsupported, ${counts.REFUSED || 0} refused)`
+  : "\nFAIL: the shipped engine no longer reproduces the frozen reference");
 process.exit(ok ? 0 : 1);
