@@ -1,6 +1,7 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # BTL Tech — PDF Toolkit
 
-A self-contained PDF service for [btltech.co.uk](https://btltech.co.uk), in three parts:
+A free, self-contained PDF service run by BTLTECH LTD, in three parts:
 
 | Part | What it does | Where it runs | Speed |
 |---|---|---|---|
@@ -14,14 +15,20 @@ No database, no external API keys, no third-party cloud services.
 Server-side work happens in a temporary folder and the file is deleted the moment the download
 finishes. The editor uploads nothing at all — the document never leaves the device.
 
+**Licence:** free software under the GNU Affero General Public License v3.0 or later (`LICENSE`).
+Because this is a network service, anyone using it must be able to get its source code; every page
+links to `/source`, which serves the exact code running. See [Licence and source code](#licence-and-source-code).
+This repository is a standalone project: it contains no code from, and does not link to, any other
+BTLTECH LTD software.
+
 ---
 
 ## Quick start
 
 ```bash
-cd pdf2word
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+cd btltech-pdf-service
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt        # production dependencies, pinned
 .venv/bin/python app.py
 ```
 
@@ -35,6 +42,8 @@ Open **http://127.0.0.1:8000**.
 | `/convert` | PDF → Word converter |
 | `/edit` | Browser-side PDF editor |
 | `/tools` | The nine page tools |
+| `/source` | Licence and source-code download (AGPL-3.0 section 13) |
+| `/source.zip` | The source of the running version, as a ZIP |
 
 ## API
 
@@ -105,6 +114,11 @@ and text-size controls, Undo and Clear marks.
 **Pages:** a thumbnail panel with move earlier / move later / leave out, and a Reset order button.
 Pages you leave out are simply not written to the output; the rest keep their order.
 
+**Security:** pdf.js 3.11.174 is affected by CVE-2024-4367 (script execution from a crafted font
+in an opened PDF). The editor passes `isEvalSupported: false` to `getDocument`, which closes it, and
+`scripts/test_release.py` fails if any `getDocument` call loses that setting. Keep the flag after
+upgrading pdf.js too.
+
 **How it stays correct on rotated pages:** marks are stored in PDF user space (origin bottom-left),
 which is exactly the space pdf-lib draws in. pdf.js's viewport converts in both directions, so pages
 carrying a `/Rotate` entry need no hand-written trigonometry.
@@ -119,39 +133,35 @@ carrying a `/Rotate` entry need no hand-written trigonometry.
 
 ## Testing
 
-Two suites, both runnable at any time.
-
 ```bash
-# 29 assertions covering every endpoint, in-process (no server needed)
-.venv/bin/python scripts/test_tools.py
-
-# a demo document with headings, a ruled table and an image
-.venv/bin/python scripts/make_sample_pdf.py
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+npm install                        # browser tests only: installs playwright-core, pinned
+scripts/run_tests.sh --browser     # everything; omit --browser for the Python suites only
 ```
 
-`scripts/test_tools.py` exercises merge, split, delete, rotate, compress, protect, unlock, watermark,
-page numbers, every validation path, all four pages, the stylesheet and the Word converter. It exits
-non-zero on failure, so it drops straight into CI.
+| Suite | Script | Assertions |
+|---|---|---|
+| Every endpoint, validation path, page and the converter (in-process) | `scripts/test_tools.py` | 29 |
+| Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
+| The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
+| Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 15 |
+| Release: AGPL notices, source offer on every page, source ZIP contents, pdf.js setting, dependency split, separation from other software | `scripts/test_release.py` | 20 |
 
-The editor was verified by driving real Chrome through the UI (load → annotate → erase → reorder →
-save) and then inspecting the produced PDF with PyMuPDF: 21 browser assertions plus 8 PDF-level ones
-confirmed the saved file has the right page count, real selectable text, and the drawn marks baked in
-as visible content. The page-tools and converter UIs were browser-tested the same way, 15 assertions
-covering merge, compress, rotate, protect and the automatic `.docx` download.
+The first four are the original 73 assertions. The editor-output and page-tools UI checks used to be
+run by hand; they are now scripts. `run_tests.sh --browser` generates its own four-page fixture
+(`scripts/make_test_pdf.py`), starts the app on port 8765, runs the browser suites and stops it.
+It needs Google Chrome; set `CHROME_PATH` if Chrome is not in the default macOS location. Output
+goes to `test-output/` (ignored by git).
 
-That editor check ships as [`scripts/browser_test.mjs`](scripts/browser_test.mjs) if you want to
-rerun it after changing anything. It is a development tool: install `playwright-core` in a scratch
-folder, not in this project, and point it at any four-page PDF.
-
-```bash
-mkdir -p /tmp/pdfcheck && cd /tmp/pdfcheck && npm install playwright-core
-TEST_PDF=/tmp/pdfcheck/four.pdf OUT_PDF=/tmp/pdfcheck/edited.pdf \
-  node /path/to/pdf2word/scripts/browser_test.mjs
-```
+`scripts/make_sample_pdf.py` writes a demo document with headings, a ruled table and an image to
+`samples/`.
 
 ## Running it in production
 
-Behind Nginx on a small VPS. 1 vCPU / 1 GB RAM is comfortable for typical documents:
+Run it from a checkout plus a virtual environment, behind Nginx on a small VPS. **Do not publish a
+Docker or other container image, or any bundle of installed packages:** the OpenCV wheel pdf2docx
+depends on includes GPL-licensed codec libraries, and redistributing those binaries brings
+obligations this project has not taken on (see `THIRD_PARTY_NOTICES.md`). 1 vCPU / 1 GB RAM is comfortable for typical documents:
 
 ```bash
 .venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 2
@@ -164,6 +174,26 @@ a merge. The editor costs the server nothing — it is static files plus the use
 
 Set `client_max_body_size 50m;` in Nginx to match `PDF2WORD_MAX_MB`.
 
+## Licence and source code
+
+This service is licensed under the GNU AGPL v3.0 or later. What that means for whoever deploys it:
+
+- **Every page must keep its "Source code" link.** AGPL-3.0 section 13 requires that users of a
+  network service are offered its source. The footer of every page links to `/source`, and
+  `scripts/test_release.py` fails if any page loses it.
+- **`/source.zip` is built from the files the server is running**, so it always matches the deployed
+  version. It leaves out `.venv`, `.git`, caches, `node_modules`, test output and any `.env` file.
+- **Publish each deployed version.** Set `PDF_SOURCE_REPO_URL` to the public repository and
+  `PDF_SOURCE_VERSION` to the deployed tag or commit; `/source` then shows both.
+- **Keep secrets out of the tree.** Configuration comes from environment variables; never commit a
+  `.env` file or credentials, because everything else in the directory is published.
+- **Keep it separate.** Do not import code from other BTLTECH LTD software into this service, and do
+  not copy this code into other products; either would bring that software under the AGPL.
+- The BTL Tech name and logo are not licensed under the AGPL.
+
+Third-party components and their licences are listed in `THIRD_PARTY_NOTICES.md`; licence texts
+for the bundled browser libraries are in `LICENSES/`.
+
 ## Configuration
 
 | Environment variable | Default | Meaning |
@@ -171,29 +201,40 @@ Set `client_max_body_size 50m;` in Nginx to match `PDF2WORD_MAX_MB`.
 | `PDF2WORD_HOST` | `0.0.0.0` | Interface to bind |
 | `PDF2WORD_PORT` | `8000` | Port to listen on |
 | `PDF2WORD_MAX_MB` | `50` | Max upload size in MB |
+| `PDF_SOURCE_REPO_URL` | *(empty)* | Public repository URL shown on `/source` |
+| `PDF_SOURCE_VERSION` | git commit, if available | Version shown on `/source` and in `X-Source-Version` |
 
 ## Project structure
 
 ```
-pdf2word/
+btltech-pdf-service/
 ├── app.py                     # FastAPI app: pages + the Word converter
-├── tools.py                   # The nine page tools (PyMuPDF)
-├── config.py                  # Shared settings
+├── tools.py                   # The page tools (PyMuPDF)
+├── source_offer.py            # /source and /source.zip (AGPL-3.0 s.13)
+├── config.py                  # Settings from environment variables
 ├── static/
 │   ├── app.css                # Shared styles
 │   ├── index.html             # Hub
 │   ├── convert.html           # PDF -> Word UI
 │   ├── editor.html            # Browser editor
 │   ├── tools.html             # Page tools UI
-│   └── vendor/                # pdf.js 3.11.174 + pdf-lib 1.17.1 (self-hosted)
+│   └── vendor/                # pdf.js 3.11.174 + pdf-lib 1.17.1 (unmodified releases)
 ├── scripts/
-│   ├── make_sample_pdf.py     # Demo document generator
-│   └── test_tools.py          # The endpoint test suite
-└── requirements.txt
+│   ├── run_tests.sh           # Runs every suite
+│   ├── test_tools.py          # Endpoint suite
+│   ├── test_release.py        # Licence, source offer, security and separation checks
+│   ├── browser_test.mjs       # Editor in Chrome
+│   ├── verify_editor_output.py
+│   ├── browser_tools_test.mjs # Page tools and converter in Chrome
+│   ├── make_test_pdf.py       # Four-page test fixture
+│   └── make_sample_pdf.py     # Demo document generator
+├── LICENSE                    # GNU AGPL v3
+├── LICENSES/                  # Apache-2.0 (pdf.js) and MIT (pdf-lib) texts
+├── THIRD_PARTY_NOTICES.md
+├── requirements.txt           # Production dependencies, pinned
+├── requirements-dev.txt       # + test-only packages
+└── package.json               # Browser-test tooling only (playwright-core)
 ```
-
-The whole folder is portable — move it anywhere and rerun the Quick start. Nothing references the
-project it was developed inside.
 
 ## Notes and limits
 
@@ -207,8 +248,8 @@ project it was developed inside.
 - **Compression** re-encodes oversized images and cleans up the file. Text is never touched, so it
   stays selectable. It will not shrink a document that has no oversized images.
 - **Third-party licences:** pdf.js (Apache-2.0) and pdf-lib (MIT) are bundled in `static/vendor/`;
-  PyMuPDF (AGPL-3.0) and pdf2docx (MIT) are Python dependencies. Note that PyMuPDF's AGPL licence is
-  worth reviewing before commercial distribution — a commercial licence is available from Artifex.
+  PyMuPDF (AGPL-3.0) and pdf2docx (MIT) are Python dependencies. This service is itself AGPL, which
+  is what allows it to use PyMuPDF without a commercial licence. See `THIRD_PARTY_NOTICES.md`.
 
 ## Roadmap: V3 (scanned PDFs, OCR, hard layouts)
 
