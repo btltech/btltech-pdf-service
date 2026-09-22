@@ -5,7 +5,8 @@
 Guards what is easy to lose in a later edit: the licence, the source offer
 that AGPL-3.0 section 13 requires on every page, the contents of the source
 download, the pdf.js security setting, the split between production and test
-dependencies, and the separation from all other BTLTECH LTD software.
+dependencies, PDF -> Word staying out of the server process (memory), and
+the separation from all other BTLTECH LTD software.
 
 Usage:
     .venv/bin/python scripts/test_release.py
@@ -50,7 +51,7 @@ for rel in ("THIRD_PARTY_NOTICES.md", "LICENSES/Apache-2.0.txt", "LICENSES/pdf-l
     check(f"{rel} is present", os.path.isfile(os.path.join(ROOT, rel)))
 
 OWN_SOURCE = [
-    "app.py", "tools.py", "config.py", "source_offer.py",
+    "app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py",
     "static/index.html", "static/convert.html", "static/editor.html", "static/tools.html",
     "static/app.css",
 ] + sorted("scripts/" + name for name in os.listdir(os.path.join(ROOT, "scripts"))
@@ -72,7 +73,7 @@ names = []
 if response.status_code == 200 and response.content[:2] == b"PK":
     with zipfile.ZipFile(io.BytesIO(response.content)) as bundle:
         names = [name.split("/", 1)[1] for name in bundle.namelist()]
-required = ["app.py", "tools.py", "config.py", "source_offer.py", "LICENSE", "THIRD_PARTY_NOTICES.md",
+required = ["app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py", "LICENSE", "THIRD_PARTY_NOTICES.md",
             "requirements.txt", "static/editor.html", "static/vendor/pdf.min.js", "static/vendor/pdf-lib.min.js"]
 check("/source.zip contains the complete running source",
       all(name in names for name in required), ", ".join(n for n in required if n not in names))
@@ -94,6 +95,15 @@ editor = read("static/editor.html").decode()
 calls = re.findall(r"getDocument\(\{[^}]*\}", editor)
 check("every pdf.js getDocument call sets isEvalSupported: false (CVE-2024-4367)",
       bool(calls) and all("isEvalSupported: false" in call for call in calls), "; ".join(calls))
+
+print("\n=== memory ===")
+before = "pdf2docx" in sys.modules
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+from make_test_pdf import make_pdf  # noqa: E402
+
+converted = client.post("/api/convert", files={"file": ("one.pdf", make_pdf(1), "application/pdf")})
+check("PDF -> Word runs in a child process, never inside the server",
+      converted.status_code == 200 and converted.content[:2] == b"PK" and not before and "pdf2docx" not in sys.modules)
 
 print("\n=== dependencies ===")
 prod = read("requirements.txt").decode().lower()
@@ -117,11 +127,11 @@ for dirpath, dirs, files in os.walk(ROOT):
             offenders.append(rel)
 check("no file refers to another BTLTECH LTD product or a local path", not offenders, ", ".join(offenders))
 imports = set()
-for rel in ("app.py", "tools.py", "config.py", "source_offer.py"):
+for rel in ("app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py"):
     imports |= set(re.findall(r"^\s*(?:from|import)\s+([\w.]+)", read(rel).decode(), re.M))
 local = {name for name in imports if os.path.exists(os.path.join(ROOT, name.split(".")[0] + ".py"))}
 check("the service imports only its own modules and published packages",
-      local <= {"config", "tools", "source_offer", "app"}, ", ".join(sorted(local)))
+      local <= {"config", "tools", "source_offer", "app", "converter_worker"}, ", ".join(sorted(local)))
 
 print("\n=== summary ===")
 print(f"  passed: {len(PASSED)}")

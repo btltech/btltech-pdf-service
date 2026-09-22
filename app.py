@@ -15,10 +15,14 @@ Configuration (environment variables):
     PDF2WORD_HOST     interface to bind          (default 0.0.0.0)
     PDF2WORD_PORT     port to listen on          (default 8000)
     PDF2WORD_MAX_MB   max upload size in MB      (default 50)
+    PDF2WORD_CONVERT_WORKERS    conversions run at once       (default 2)
+    PDF2WORD_CONVERT_TIMEOUT_S  stop a conversion after this   (default 300)
 """
 
+import asyncio
 import logging
 import os
+import sys
 import re
 import shutil
 import tempfile
@@ -26,24 +30,22 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 # PyMuPDF >= 1.24 exposes the modern `pymupdf` name; older releases only ship
-# the legacy `fitz` alias. NB: pdf2docx still imports `fitz` internally, so the
-# first conversion emits one PyMuPDF deprecation notice. PyMuPDF writes that
-# message straight to file descriptor 2, so it is outside the reach of logging
-# configuration - it is informational only and safe to ignore.
+# the legacy `fitz` alias. NB: pdf2docx still imports `fitz` internally, so each
+# conversion's child process prints one PyMuPDF deprecation notice to stderr;
+# run_converter() drops it. It is informational only.
 try:
     import pymupdf as fitz
 except ImportError:  # pragma: no cover - legacy PyMuPDF
     import fitz
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
 import source_offer
 import tools
-from config import HOST, MAX_UPLOAD_MB, PORT
+from config import CONVERT_TIMEOUT_S, CONVERT_WORKERS, HOST, MAX_UPLOAD_MB, PORT
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -63,6 +65,35 @@ log = logging.getLogger("pdf2word")
 log.setLevel(logging.INFO)
 
 app = FastAPI(title="BTL Tech PDF Toolkit", version="2.0.0")
+
+# PDF -> Word runs in a child process per conversion (converter_worker.py), so
+# pdf2docx's memory is returned when each one ends. This caps how many run at
+# once; the rest wait their turn, which also caps peak memory.
+WORKER = str(BASE_DIR / "converter_worker.py")
+_convert_slots = asyncio.Semaphore(CONVERT_WORKERS)
+
+
+async def run_converter(in_path: str, out_path: str, start: Optional[int], end: Optional[int]) -> None:
+    """Convert in a separate process; raise RuntimeError with its message on failure."""
+    args = [sys.executable, WORKER, in_path, out_path]
+    if start is not None:
+        args += [str(start), str(end)]
+    async with _convert_slots:
+        proc = await asyncio.create_subprocess_exec(
+            *args, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
+        )
+        try:
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=CONVERT_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise RuntimeError(f"it took longer than {CONVERT_TIMEOUT_S} seconds and was stopped")
+    if proc.returncode != 0:
+        # pdf2docx imports PyMuPDF's legacy name and PyMuPDF prints a deprecation
+        # notice to stderr; the worker's own message is always the last line.
+        lines = [line for line in stderr.decode("utf-8", "replace").splitlines()
+                 if line.strip() and "fitz` API is deprecated" not in line]
+        raise RuntimeError(lines[-1] if lines else f"the converter exited with status {proc.returncode}")
 
 # Server-side page tools (merge, split, compress, protect ...).
 app.include_router(tools.router)
@@ -191,19 +222,9 @@ async def convert(
                 f"page{'s' if page_count != 1 else ''}",
             )
 
-        def _convert() -> None:
-            # Imported here so the server starts instantly; pdf2docx is heavy.
-            from pdf2docx import Converter
-
-            cv = Converter(in_path)
-            try:
-                kwargs = {} if start is None else {"start": start, "end": end}
-                cv.convert(out_path, **kwargs)
-            finally:
-                cv.close()
-
-        # CPU-bound and blocking, so run it off the event loop.
-        await run_in_threadpool(_convert)
+        # CPU-bound, and pdf2docx never hands its memory back, so it runs in
+        # a child process that exits afterwards (see run_converter).
+        await run_converter(in_path, out_path, start, end)
 
         if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
             raise HTTPException(

@@ -145,7 +145,7 @@ scripts/run_tests.sh --browser     # everything; omit --browser for the Python s
 | Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
 | The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
 | Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 15 |
-| Release: AGPL notices, source offer on every page, source ZIP contents, pdf.js setting, dependency split, separation from other software | `scripts/test_release.py` | 20 |
+| Release: AGPL notices, source offer on every page, source ZIP contents, pdf.js setting, dependency split, separation from other software, conversion kept out of the server process | `scripts/test_release.py` | 21 |
 
 The first four are the original 73 assertions. The editor-output and page-tools UI checks used to be
 run by hand; they are now scripts. `run_tests.sh --browser` generates its own four-page fixture
@@ -161,16 +161,23 @@ goes to `test-output/` (ignored by git).
 Run it from a checkout plus a virtual environment, behind Nginx on a small VPS. **Do not publish a
 Docker or other container image, or any bundle of installed packages:** the OpenCV wheel pdf2docx
 depends on includes GPL-licensed codec libraries, and redistributing those binaries brings
-obligations this project has not taken on (see `THIRD_PARTY_NOTICES.md`). 1 vCPU / 1 GB RAM is comfortable for typical documents:
+obligations this project has not taken on (see `THIRD_PARTY_NOTICES.md`). One server process is
+enough:
 
 ```bash
-.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000 --workers 2
+.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-`--workers` should follow your CPU cores, because conversion is CPU-bound and occupies a worker for
-roughly a second. The page tools are so fast (tens of milliseconds) that they can share that pool; at
-higher traffic, consider moving them into a second small service so a conversion queue never delays
-a merge. The editor costs the server nothing — it is static files plus the user's own CPU.
+**Memory.** Each PDF → Word conversion runs in its own short-lived process
+(`converter_worker.py`) that exits when it finishes. pdf2docx never hands its memory back, so run
+inside the server it grew the process from about 80 MB to about 675 MB over the first twenty
+conversions; as separate processes, the server stayed at 81–97 MB over forty conversions, peaking
+at about 250 MB while one runs (measured 22 Sep 2026, four-page document, ~1 s each). A crash inside
+the PDF engine ends only that conversion. At most `PDF2WORD_CONVERT_WORKERS` (default 2) convert at
+once and the rest queue, so peak memory stays bounded; conversions still running after
+`PDF2WORD_CONVERT_TIMEOUT_S` (default 300) seconds are stopped. The page tools take tens of
+milliseconds and run in the server itself. The editor costs the server nothing — it is static files
+plus the user's own CPU.
 
 Set `client_max_body_size 50m;` in Nginx to match `PDF2WORD_MAX_MB`.
 
@@ -201,6 +208,8 @@ for the bundled browser libraries are in `LICENSES/`.
 | `PDF2WORD_HOST` | `0.0.0.0` | Interface to bind |
 | `PDF2WORD_PORT` | `8000` | Port to listen on |
 | `PDF2WORD_MAX_MB` | `50` | Max upload size in MB |
+| `PDF2WORD_CONVERT_WORKERS` | `2` | PDF → Word conversions that run at once (each ~150–250 MB) |
+| `PDF2WORD_CONVERT_TIMEOUT_S` | `300` | Stop a conversion that runs longer than this |
 | `PDF_SOURCE_REPO_URL` | *(empty)* | Public repository URL shown on `/source` |
 | `PDF_SOURCE_VERSION` | git commit, if available | Version shown on `/source` and in `X-Source-Version` |
 
@@ -209,6 +218,7 @@ for the bundled browser libraries are in `LICENSES/`.
 ```
 btltech-pdf-service/
 ├── app.py                     # FastAPI app: pages + the Word converter
+├── converter_worker.py        # One PDF -> Word conversion, run as a child process
 ├── tools.py                   # The page tools (PyMuPDF)
 ├── source_offer.py            # /source and /source.zip (AGPL-3.0 s.13)
 ├── config.py                  # Settings from environment variables
