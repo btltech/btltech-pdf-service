@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later
+   Copyright (C) 2026 BTLTECH LTD */
 /* BTL Tech PDF Toolkit - shared styles for every page.
    Dark, single theme, no build step, no CSS framework. */
 
@@ -222,3 +224,17 @@ footer.foot {
 .grid > .card { margin-top: 0; max-width: none; }
 .picked { margin-top: 9px; min-height: 16px; }
 .tool .card-sub { min-height: 34px; }
+/* ------------------------------------------------------- source offer --- */
+/* AGPL-3.0 s.13: the source link must be prominent on every page, so it gets
+   its own line in the footer with a readable colour rather than the footnote grey. */
+footer.foot .source-line { display: block; margin-top: 8px; color: var(--muted); }
+footer.foot a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+footer.foot a:hover { color: var(--ink); }
+.prose p + p { margin-top: 14px; }
+.prose p { line-height: 1.6; }
+.prose a { color: var(--accent); }
+a.btn {
+  display: inline-block; background: var(--accent-2); color: #fff; text-decoration: none;
+  padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 14px;
+}
+a.btn:hover { background: #3d7bfd; }

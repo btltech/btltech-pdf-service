@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 BTLTECH LTD
 """Server-side PDF page tools (Tier 2 of the toolkit).
 
 Merge, split, delete, rotate, compress, protect, unlock, watermark and number

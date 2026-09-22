@@ -4,6 +4,14 @@ __pycache__/
 .venv/
 venv/
 
+# Browser test tooling and output (npm install; scripts/run_tests.sh --browser)
+node_modules/
+test-output/
+
+# Deployment secrets never belong in the repository
+.env
+.env.*
+
 # Generated demo files (regenerate with scripts/make_sample_pdf.py)
 samples/
 tmp/

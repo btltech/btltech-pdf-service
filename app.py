@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 BTLTECH LTD
 """BTL Tech - PDF to Word converter (V1 + V2).
 
 Converts digital/text PDF files into editable .docx documents, preserving
@@ -39,6 +41,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
+import source_offer
 import tools
 from config import HOST, MAX_UPLOAD_MB, PORT
 
@@ -63,6 +66,9 @@ app = FastAPI(title="BTL Tech PDF Toolkit", version="2.0.0")
 
 # Server-side page tools (merge, split, compress, protect ...).
 app.include_router(tools.router)
+
+# AGPL-3.0 s.13 source offer: /source and /source.zip.
+app.include_router(source_offer.router)
 
 # Stylesheet and other static assets.
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

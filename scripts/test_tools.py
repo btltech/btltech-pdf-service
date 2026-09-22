@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 BTLTECH LTD
 """Regression tests for the PDF toolkit.
 
 Runs the real FastAPI app in-process - no server required.

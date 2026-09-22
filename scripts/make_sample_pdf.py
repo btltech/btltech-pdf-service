@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 BTLTECH LTD
 """Generate a demo PDF that exercises the V1 + V2 conversion features.
 
 It contains a title, headings, body text, a ruled table and an image, so a
@@ -19,12 +21,12 @@ except ImportError:  # older releases only ship the classic 'fitz' alias
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.normpath(os.path.join(HERE, "..", "samples"))
 
-HEADER_ROW = ["Component", "Status", "Mileage", "Last Service"]
+HEADER_ROW = ["Item", "Status", "Pages", "Updated"]
 TABLE_ROWS = [
     HEADER_ROW,
-    ["Engine ECU", "OK", "48,210 mi", "12/2025"],
-    ["Brake system", "Attention", "48,210 mi", "03/2025"],
-    ["Transmission", "OK", "48,210 mi", "12/2025"],
+    ["Quarterly report", "Final", "24", "12/2025"],
+    ["Price list", "Draft", "3", "03/2026"],
+    ["Staff handbook", "Final", "41", "09/2025"],
 ]
 
 
@@ -36,7 +38,7 @@ def make_logo(path: str) -> None:
     page.draw_rect(fitz.Rect(20, 24, 120, 80), color=(0.36, 0.55, 1.0), fill=(0.14, 0.28, 0.62))
     page.draw_circle(fitz.Point(210, 60), 40, color=(1.0, 0.55, 0.3), fill=(0.85, 0.35, 0.15))
     page.insert_text((20, 120), "BTL Tech", fontsize=22, color=(1, 1, 1))
-    page.insert_text((20, 145), "automotive diagnostics", fontsize=11, color=(0.7, 0.78, 0.9))
+    page.insert_text((20, 145), "PDF toolkit sample", fontsize=11, color=(0.7, 0.78, 0.9))
     page.get_pixmap().save(path)
     doc.close()
 
@@ -77,12 +79,12 @@ def main() -> None:
     doc = fitz.open()
     page = doc.new_page()  # A4 portrait: 595 x 842 pt
 
-    page.insert_text((72, 90), "BTL Tech Service Report", fontsize=26, color=(0.05, 0.07, 0.12))
+    page.insert_text((72, 90), "BTL Tech Sample Report", fontsize=26, color=(0.05, 0.07, 0.12))
     page.insert_text(
         (72, 116), "Sample document for the PDF to Word converter", fontsize=11, color=(0.4, 0.45, 0.55)
     )
 
-    page.insert_text((72, 166), "1. Vehicle Details", fontsize=16, color=(0.1, 0.15, 0.3))
+    page.insert_text((72, 166), "1. About this document", fontsize=16, color=(0.1, 0.15, 0.3))
     page.insert_textbox(
         fitz.Rect(72, 182, 523, 250),
         "This sample exercises the converter's handling of headings, body text, "
@@ -92,10 +94,10 @@ def main() -> None:
         fontsize=10.5,
     )
 
-    page.insert_text((72, 280), "2. Diagnostic Summary", fontsize=16, color=(0.1, 0.15, 0.3))
+    page.insert_text((72, 280), "2. Document register", fontsize=16, color=(0.1, 0.15, 0.3))
     draw_table(page, 72, 296, [140, 100, 100, 111], TABLE_ROWS)
 
-    page.insert_text((72, 450), "3. Workshop Logo", fontsize=16, color=(0.1, 0.15, 0.3))
+    page.insert_text((72, 450), "3. An embedded image", fontsize=16, color=(0.1, 0.15, 0.3))
     page.insert_image(fitz.Rect(72, 466, 282, 576), filename=logo_path)
 
     out_path = os.path.join(OUT_DIR, "demo.pdf")

@@ -1,22 +1,18 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 BTLTECH LTD
 /* Browser test for the PDF editor (development tool - not needed at runtime).
 
    It drives real Chrome through the editor UI - load, annotate, erase, undo,
-   reorder pages, zoom, save - and asserts on the state inside the page. The PDF
-   it downloads is left for you to inspect.
+   reorder pages, zoom, save - and asserts on the state inside the page. The
+   saved PDF is then checked by scripts/verify_editor_output.py.
 
-   Requires Node plus an installed Chrome; playwright-core is a dev dependency,
-   so install it in a scratch folder rather than in this project:
-
-       mkdir -p /tmp/pdfcheck && cd /tmp/pdfcheck
-       npm install playwright-core
-       cp <some-4-page.pdf> /tmp/pdfcheck/four.pdf
-       TEST_PDF=/tmp/pdfcheck/four.pdf OUT_PDF=/tmp/pdfcheck/edited.pdf \
-         node /path/to/pdf2word/scripts/browser_test.mjs
-
-   The app must already be running on http://127.0.0.1:8000. */
+   Run everything with:  scripts/run_tests.sh --browser
+   (needs `npm install` once, Node, and an installed Chrome; set CHROME_PATH
+   if Chrome is not in the default macOS location). */
 
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // playwright-core is a dev dependency you install in a scratch folder, so a
 // bare import would fail when this file is run from outside this project.
@@ -45,8 +41,9 @@ if (!chromium) {
 const CHROME =
   process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const BASE = process.env.APP_URL || "http://127.0.0.1:8000";
-const SOURCE = process.env.TEST_PDF || "/tmp/pdfcheck/four.pdf";
-const OUTPUT = process.env.OUT_PDF || "/tmp/pdfcheck/edited.pdf";
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SOURCE = process.env.TEST_PDF || path.join(HERE, "..", "test-output", "four.pdf");
+const OUTPUT = process.env.OUT_PDF || path.join(HERE, "..", "test-output", "edited.pdf");
 
 const passed = [];
 const failed = [];
@@ -110,7 +107,7 @@ const overlay = await page.$(".page canvas.overlay");
 const box = await overlay.boundingBox();
 
 await page.click('.tbtn[data-tool="text"]');
-await page.fill("#textValue", "CLINE EDITOR TEST");
+await page.fill("#textValue", "EDITOR TEST MARK");
 await page.fill("#textSize", "20");
 await page.mouse.click(box.x + 140, box.y + 170);
 await page.waitForTimeout(200);
@@ -215,6 +212,12 @@ const waiting = page.waitForEvent("download", { timeout: 60000 });
 await page.click("#saveBtn");
 const download = await waiting;
 await download.saveAs(OUTPUT);
+// Record the order the editor showed, so verify_editor_output.py can check
+// the saved file matches it (1-based original page numbers).
+fs.writeFileSync(
+  OUTPUT.replace(/\.pdf$/, "-order.json"),
+  JSON.stringify(await page.evaluate(() => window.livePages().map((index) => index + 1)))
+);
 check("a PDF was downloaded", fs.statSync(OUTPUT).size > 2000, fs.statSync(OUTPUT).size + " bytes");
 check(
   "the download is named after the source",
