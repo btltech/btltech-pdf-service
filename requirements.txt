@@ -1,7 +1,38 @@
-# BTL Tech PDF to Word converter - V1 + V2
-# Install with:  .venv/bin/pip install -r requirements.txt
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Production dependencies, pinned to the versions this service is tested with.
+# Licences (checked 22 Sep 2026) are listed in THIRD_PARTY_NOTICES.md.
+#
+#   python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
-fastapi>=0.110,<1.0
-uvicorn[standard]>=0.29
-python-multipart>=0.0.9
-pdf2docx>=0.5.8
+# web service
+fastapi==0.141.1
+starlette==1.6.0
+pydantic==2.13.5
+pydantic_core==2.46.5
+annotated-doc==0.0.5
+annotated-types==0.8.0
+typing_extensions==4.16.0
+typing-inspection==0.4.4
+anyio==4.15.1
+idna==3.20
+python-multipart==0.0.32
+uvicorn[standard]==0.53.0
+click==8.5.0
+h11==0.16.0
+httptools==0.8.0
+python-dotenv==1.2.3
+PyYAML==6.0.3
+uvloop==0.22.1
+watchfiles==1.3.0
+websockets==17.1
+
+# PDF engine and PDF -> Word
+pymupdf==1.28.2
+pdf2docx==0.5.13
+python-docx==1.2.0
+lxml==6.1.3
+fonttools==4.65.0
+numpy==2.5.3
+opencv-python-headless==5.0.0.93
+fire==0.7.1
+termcolor==3.3.0
