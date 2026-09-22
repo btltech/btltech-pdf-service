@@ -3,7 +3,7 @@
 This service is licensed under the GNU Affero General Public License v3.0 or
 later (see `LICENSE`). It is built on the components below. Licences were
 checked on 22 September 2026 against the pinned versions in
-`requirements.txt`.
+`requirements.txt`, and on 23 September 2026 for the text-editing components.
 
 ## Shipped in this repository and served to browsers
 
@@ -17,6 +17,31 @@ against the published npm packages on 22 Sep 2026).
 | (bundled inside pdf-lib) | @pdf-lib/standard-fonts 1.0.0, @pdf-lib/upng 1.0.1 | MIT | as above |
 | (bundled inside pdf-lib) | pako 1.0.x | MIT AND Zlib | https://github.com/nodeca/pako |
 | (bundled inside pdf-lib) | tslib helpers, Copyright (c) Microsoft Corporation | Apache-2.0 (per the header in the bundle) | `LICENSES/Apache-2.0.txt` |
+| `static/vendor/pdfium/pdfium.mjs`, `static/vendor/pdfium/pdfium.wasm` | @embedpdf/pdfium 2.15.1 (a WebAssembly build of PDFium) | MIT for the wrapper, BSD-3-Clause for PDFium itself | `LICENSES/embedpdf-pdfium-MIT.txt`, `LICENSES/pdfium-BSD-3-Clause.txt`; sources: https://github.com/embedpdf/embed-pdf-viewer and https://pdfium.googlesource.com/pdfium/ |
+| `static/vendor/harfbuzz/harfbuzz-subset.wasm` | harfbuzzjs 1.6.2 (a WebAssembly build of HarfBuzz) | MIT | `LICENSES/harfbuzzjs-MIT.txt`; sources: https://github.com/harfbuzz/harfbuzzjs and https://github.com/harfbuzz/harfbuzz |
+| `static/vendor/pdf-lib.cjs` | pdf-lib 1.17.1 (the CommonJS build, used by the edit-text integrity check) | MIT | `LICENSES/pdf-lib-MIT.txt` |
+
+### Fonts served to browsers
+
+`static/fonts/` holds the substitute fonts the text editor embeds when a
+document's own font has no glyph for a character the customer typed. Only the
+characters used are embedded, as a subset. All are free to embed and
+redistribute; each font's own licence file sits beside it in that directory.
+
+| Fonts | Copyright | Licence |
+|---|---|---|
+| Liberation Sans, Serif and Mono 2.1.5 | Copyright (c) 2012 Red Hat, Inc. | SIL OFL 1.1 (`static/fonts/liberation-LICENSE.txt`) |
+| Carlito | Copyright (c) 2010-2013 Lukasz Dziedzic | SIL OFL 1.1 (`static/fonts/carlito-OFL.txt`) |
+| Caladea | Copyright (c) 2012 Carolina Giovagnoli and Andres Torresi | SIL OFL 1.1 (`static/fonts/caladea-OFL.txt`) |
+| Gelasio | Copyright (c) Eben Sorkin | SIL OFL 1.1 (`static/fonts/gelasio-OFL.txt`) |
+| Source Sans 3 | Copyright 2010-2023 Adobe Systems Incorporated | SIL OFL 1.1 (`static/fonts/sourcesans3-OFL.txt`) |
+| Inter | Copyright (c) 2016-2023 The Inter Project Authors | SIL OFL 1.1 (`static/fonts/inter-OFL.txt`) |
+| DejaVu Sans 2.37 | Bitstream Vera Fonts Copyright (c) 2003 Bitstream, Inc.; DejaVu changes public domain | Bitstream Vera licence (`static/fonts/dejavu-LICENSE.txt`) |
+
+The full text of SIL OFL 1.1 is also at `LICENSES/SIL-OFL-1.1.txt`. None of
+these fonts is modified; subsetting happens in the browser at the moment of an
+edit and produces a derived font inside the customer's own document, which the
+OFL permits (the reserved font names are not used for the subsets).
 
 ## Installed from PyPI at deploy time (not included in this repository)
 

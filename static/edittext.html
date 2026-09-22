@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     Copyright (C) 2026 BTLTECH LTD -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Edit the text in a PDF &mdash; BTL Tech</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9C%8F%EF%B8%8F</text></svg>" />
+<link rel="stylesheet" href="/static/app.css" />
+<style>
+  main.edittext { width:100%; max-width:1280px; display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; align-items:start; }
+  @media (max-width: 980px) { main.edittext { grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
+  .panel h3 { font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted-2); margin-bottom:10px; }
+  #dropzone { border:1px dashed var(--line-strong); border-radius:var(--radius); padding:26px; text-align:center; color:var(--muted); background:var(--panel-2); }
+  #dropzone.over { border-color:var(--accent); background:#16233c; }
+  #dropzone.small { padding:12px; font-size:12px; }
+  #dropzone input { margin-top:10px; color:var(--muted); font-size:12px; }
+  .stagebar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-bottom:12px; }
+  .stagebar .fname { flex:1; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+  #pagewrap, #previewwrap { position:relative; line-height:0; background:#fff; border-radius:3px; box-shadow:0 6px 22px rgba(0,0,0,.45); max-width:100%; overflow:auto; }
+  #pagewrap canvas, #previewwrap canvas { display:block; max-width:100%; }
+  #overlay { position:absolute; left:0; top:0; cursor:pointer; }
+  .note { border-radius:10px; padding:11px 13px; font-size:13px; line-height:1.5; margin-bottom:12px; background:#16233c; border:1px solid var(--line-strong); color:var(--ink); }
+  .note.bad { background:#3a1d20; border-color:#7d3b3b; }
+  .note.warn { background:#3a301a; border-color:#7d6a2f; }
+  .note.ok { background:#16301f; border-color:#2f7d4a; }
+  #original { background:var(--panel-2); border:1px solid var(--line); border-radius:9px; padding:9px 11px; font-size:12px; color:var(--muted); max-height:90px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+  textarea#newtext { width:100%; min-height:78px; margin-top:9px; background:#0c1526; border:1px solid var(--line-strong); border-radius:9px; color:var(--ink); padding:9px 11px; font:inherit; font-size:13px; resize:vertical; }
+  .btnrow { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .btnrow button { flex:1; min-width:96px; }
+  #details .row { display:flex; justify-content:space-between; gap:12px; font-size:12px; padding:5px 0; border-top:1px solid var(--line); }
+  #details .row:first-of-type { border-top:0; }
+  #details .row span:first-child { color:var(--muted-2); white-space:nowrap; }
+  #details .row span:last-child { text-align:right; color:var(--ink); }
+  .hint { font-size:12px; color:var(--muted); line-height:1.55; }
+  .pagenav { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); }
+  .caption { font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--muted-2); margin:14px 0 7px; }
+  .caption:first-of-type { margin-top:0; }
+  .pagenav button { padding:5px 10px; font-size:12px; }
+  h2.sub2 { font-size:13px; color:var(--muted-2); margin:14px 0 8px; font-weight:600; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <span class="logo">BTL Tech</span>
+  <a href="/">Toolkit</a>
+  <a href="/convert">PDF to Word</a>
+  <a href="/edit">Edit PDF</a>
+  <a href="/edit-text" class="active">Edit existing text</a>
+  <a href="/tools">Page tools</a>
+</nav>
+
+<header class="page">
+  <h1>Edit the text that is already in a PDF</h1>
+  <p class="sub">Click a line of text, change the words, and save. The document is opened in this browser tab and never uploaded &mdash; there is no server to send it to.</p>
+</header>
+
+<div id="loading" class="note">Loading the PDF engine&hellip;</div>
+
+<main class="edittext">
+  <section class="panel">
+    <div id="dropzone" hidden>
+      <strong>Drop a PDF here</strong><br />or choose one:
+      <input type="file" id="file" accept="application/pdf,.pdf" />
+    </div>
+
+    <div id="stage" hidden>
+      <div class="stagebar">
+        <span class="fname" id="filename"></span>
+        <span class="pagenav">
+          <button id="prev" class="ghost">&larr;</button>
+          <span id="pagelabel"></span>
+          <button id="next" class="ghost">&rarr;</button>
+        </span>
+      </div>
+      <div id="status" class="note" hidden></div>
+      <p class="caption" id="beforecap">The document as it is now &mdash; click any highlighted line</p>
+      <div id="pagewrap">
+        <canvas id="page"></canvas>
+        <canvas id="overlay"></canvas>
+      </div>
+      <p class="caption" id="aftercap" hidden>After your change &mdash; this is exactly what will be saved</p>
+      <div id="previewwrap" hidden>
+        <canvas id="previewcanvas"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <h3>The text you picked</h3>
+    <div id="editor" hidden>
+      <div id="original"></div>
+      <textarea id="newtext" spellcheck="true"></textarea>
+      <div class="btnrow">
+        <button id="preview">Preview</button>
+        <button id="cancel" class="ghost">Cancel</button>
+      </div>
+      <div class="btnrow">
+        <button id="save" disabled>Save the PDF</button>
+      </div>
+      <div id="details" hidden style="margin-top:14px"></div>
+    </div>
+    <p class="hint" id="pickhint">Highlighted text on the page can be edited. Click a line to start.</p>
+
+    <h2 class="sub2">What this will and will not do</h2>
+    <p class="hint">
+      It replaces text on a line and keeps the font, size, colour, alignment and any
+      underline. If the new wording does not fit it will move the rest of the line,
+      shrink very slightly, wrap, or move the line to free space &mdash; and if none of
+      those are safe it refuses and tells you why, rather than producing a mess.
+    </p>
+    <p class="hint" style="margin-top:8px">
+      It will not reflow a whole paragraph, and it cannot edit scanned pages, justified
+      lines, or Chinese, Japanese, Korean, Arabic or Hebrew text. Every edited file is
+      checked before you can save it.
+    </p>
+  </aside>
+</main>
+
+<footer class="foot">
+  <a href="/source">Source code</a> &middot; AGPL-3.0-or-later &middot;
+  <span>Your files stay in your browser.</span>
+</footer>
+
+<script src="/static/vendor/pdf-lib.min.js"></script>
+<script type="module" src="/static/edittext/ui.mjs"></script>
+</body>
+</html>

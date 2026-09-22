@@ -157,6 +157,12 @@ async def edit_page() -> HTMLResponse:
     return _page("editor.html")
 
 
+@app.get("/edit-text", response_class=HTMLResponse)
+async def edit_text_page() -> HTMLResponse:
+    """Edit the text already in a PDF. Runs entirely in the browser: no upload."""
+    return _page("edittext.html")
+
+
 @app.get("/tools", response_class=HTMLResponse)
 async def tools_page() -> HTMLResponse:
     """Server-side page tools UI."""

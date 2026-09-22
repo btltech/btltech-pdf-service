@@ -40,7 +40,8 @@ Open **http://127.0.0.1:8000**.
 |---|---|
 | `/` | Hub with a card for each part |
 | `/convert` | PDF → Word converter |
-| `/edit` | Browser-side PDF editor |
+| `/edit` | Browser-side PDF editor: annotate, sign, organise pages |
+| `/edit-text` | Edit the text already in a PDF, in the browser |
 | `/tools` | The nine page tools |
 | `/source` | Licence and source-code download (AGPL-3.0 section 13) |
 | `/source.zip` | The source of the running version, as a ZIP |
@@ -131,6 +132,67 @@ carrying a `/Rotate` entry need no hand-written trigonometry.
 - The editor renders the first 40 pages of very long documents (keeps the tab responsive).
 - An encrypted PDF must be unlocked first — use **Page tools → Remove password**.
 
+## Editing the text already in a PDF (`/edit-text`)
+
+Click a line, change the words, save. It runs entirely in the browser on PDFium
+compiled to WebAssembly: the document is read from a file input and never sent
+anywhere, which is also asserted by the browser suite watching the network.
+
+The engine came from a long feasibility study and was frozen as **FROZEN8** once it
+produced no bad output across seven corpora of real-world PDFs. What ships here is
+that frozen engine with its file access changed and nothing else;
+`static/edittext/PORTING.md` lists every difference, and
+`scripts/regression_edittext.mjs` proves the point by reproducing all 128 saved
+outputs from the frozen reference.
+
+### What it does
+
+Replaces the text of a line, keeping the font, size, colour, alignment and any
+underline or strike-through. When the new wording does not fit it works down a
+ladder, and says which rung it used:
+
+| Rung | What happens |
+|---|---|
+| FIT | It fits; replaced in place |
+| SHIFT_LINE | The rest of the line moves along to make room |
+| SHRINK | Set very slightly narrower (never below 92%) |
+| WRAP | Wrapped onto another line |
+| free space | Moved to empty space on the page |
+| refused | None of those is safe, so nothing is saved and the reason is shown |
+
+### What it refuses, and why that matters
+
+It refuses rather than guessing. Scanned pages (with or without an invisible OCR
+layer); Chinese, Japanese, Korean, Arabic and Hebrew; lines spaced out inside a
+single text object; justified lines; text inside a nested graphic; any edit whose
+result would print over existing text or artwork, run off the page, or come out as
+missing glyphs. Every file that does pass is checked for structural soundness with
+pdf-lib - a different library from the one that wrote it - before the customer can
+download it, and a file that fails is discarded rather than offered.
+
+**It does not reflow paragraphs.** Editing a line does not re-break the paragraph
+around it. That is a V2 question and deliberately out of scope here.
+
+### The frozen reference
+
+The seven corpora and the 133 recorded hashes live outside this repository, in a
+snapshot at `~/btltech-pdf-editor-reference` (override with `EDITTEXT_REFERENCE`).
+They are third-party PDFs downloaded for testing: fine to keep privately, not ours
+to publish under the AGPL. Without that snapshot the regression suite reports that
+it was skipped rather than passing on nothing.
+
+    python3 ~/btltech-pdf-editor-reference/verify_frozen.py   # the snapshot is intact
+    node scripts/regression_edittext.mjs                      # the shipped code matches it
+
+### Known limitations
+
+`static/edittext/PORTING.md` records two properties of the frozen engine found while
+building the test fixture: a short left-aligned line can occasionally be refused as
+"justified" (it fails safe, but the customer is told something untrue), and a
+genuinely justified line can be missed. Both come from a word-gap statistic that is
+noisy on lines with few gaps. Neither appeared in the seven real-world corpora. The
+detector deserves its own targeted corpus before this feature is charged for.
+
 ## Testing
 
 ```bash
@@ -145,6 +207,9 @@ scripts/run_tests.sh --browser     # everything; omit --browser for the Python s
 | Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
 | The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
 | Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 15 |
+| Edit existing text in real Chrome: open, select, preview, refusals, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 22 |
+| That editor's saved PDF, read back with PyMuPDF | `scripts/verify_edittext_output.py` | 8 |
+| The shipped edit-text engine against the frozen FROZEN8 reference | `scripts/regression_edittext.mjs` | 128 outputs |
 | Release: AGPL notices, source offer on every page, source ZIP contents, pdf.js setting, dependency split, separation from other software, conversion kept out of the server process | `scripts/test_release.py` | 21 |
 
 The first four are the original 73 assertions. The editor-output and page-tools UI checks used to be
@@ -227,8 +292,18 @@ btltech-pdf-service/
 │   ├── index.html             # Hub
 │   ├── convert.html           # PDF -> Word UI
 │   ├── editor.html            # Browser editor
+│   ├── edittext.html          # Edit existing text UI
 │   ├── tools.html             # Page tools UI
-│   └── vendor/                # pdf.js 3.11.174 + pdf-lib 1.17.1 (unmodified releases)
+│   ├── edittext/              # The frozen V1 text-editing engine
+│   │   ├── engine.mjs         #   FROZEN8, file access aside (see PORTING.md)
+│   │   ├── workflow.mjs       #   every gate, shared by the browser and the tests
+│   │   ├── integrity.mjs      #   the download gate
+│   │   ├── subset.mjs         #   HarfBuzz font subsetting
+│   │   ├── assets.mjs         #   the only place it touches files
+│   │   ├── fontset.mjs        #   which fonts to fetch before an edit
+│   │   └── ui.mjs             #   the screen, and nothing else
+│   ├── fonts/                 # OFL substitute fonts (subset at edit time)
+│   └── vendor/                # pdf.js, pdf-lib, PDFium WASM, HarfBuzz WASM (unmodified)
 ├── scripts/
 │   ├── run_tests.sh           # Runs every suite
 │   ├── test_tools.py          # Endpoint suite
@@ -236,10 +311,14 @@ btltech-pdf-service/
 │   ├── browser_test.mjs       # Editor in Chrome
 │   ├── verify_editor_output.py
 │   ├── browser_tools_test.mjs # Page tools and converter in Chrome
+│   ├── browser_edittext_test.mjs   # Edit existing text in Chrome
+│   ├── verify_edittext_output.py
+│   ├── regression_edittext.mjs     # Shipped engine vs the frozen reference
 │   ├── make_test_pdf.py       # Four-page test fixture
+│   ├── make_edittext_pdf.py   # Text-editing fixture (underline, justified, CJK, a scan)
 │   └── make_sample_pdf.py     # Demo document generator
 ├── LICENSE                    # GNU AGPL v3
-├── LICENSES/                  # Apache-2.0 (pdf.js) and MIT (pdf-lib) texts
+├── LICENSES/                  # Apache-2.0, MIT, BSD-3-Clause and SIL OFL texts
 ├── THIRD_PARTY_NOTICES.md
 ├── requirements.txt           # Production dependencies, pinned
 ├── requirements-dev.txt       # + test-only packages
