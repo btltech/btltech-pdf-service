@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Generated demo files (regenerate with scripts/make_sample_pdf.py)
+samples/
+tmp/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

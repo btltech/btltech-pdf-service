@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PDF to Word &mdash; BTL Tech</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%93%84</text></svg>" />
+<link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+
+<nav class="top">
+  <span class="logo">BTL Tech</span>
+  <a href="/">Toolkit</a>
+  <a href="/convert" class="active">PDF to Word</a>
+  <a href="/edit">Edit PDF</a>
+  <a href="/tools">Page tools</a>
+</nav>
+
+<header class="page">
+  <h1>PDF &rarr; Word</h1>
+  <p class="sub">Turn PDF documents into editable Word files &mdash; headings, tables, images and formatting preserved.</p>
+</header>
+
+<main class="card">
+  <div id="dropzone" class="dropzone" role="button" tabindex="0">
+    <p><strong>Drag &amp; drop your PDF files here</strong></p>
+    <p style="margin-top:8px">or <span class="browse">browse your device</span></p>
+  </div>
+  <input type="file" id="fileInput" accept=".pdf,application/pdf" multiple />
+
+  <div class="row">
+    <label for="pages">Pages (optional)</label>
+    <input id="pages" type="text" placeholder="e.g. 1-5 or 2,4-6" />
+    <span class="small muted">leave blank to convert the whole document</span>
+  </div>
+
+  <ul id="queue" class="queue"></ul>
+</main>
+
+<footer class="foot">Files are converted on this server and deleted immediately afterwards.</footer>
+
+<script>
+(function () {
+  var dropzone = document.getElementById("dropzone");
+  var fileInput = document.getElementById("fileInput");
+  var pagesInput = document.getElementById("pages");
+  var queueEl = document.getElementById("queue");
+
+  var items = [];        // {id, file, status, progress, url, error}
+  var processing = false;
+
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1048576).toFixed(1) + " MB";
+  }
+
+  dropzone.addEventListener("click", function () { fileInput.click(); });
+  dropzone.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+  });
+  fileInput.addEventListener("change", function () {
+    addFiles(fileInput.files);
+    fileInput.value = "";
+  });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropzone.classList.add("drag");
+    });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropzone.classList.remove("drag");
+    });
+  });
+  dropzone.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+
+  function addFiles(fileList) {
+    var added = false;
+    Array.prototype.forEach.call(fileList, function (file) {
+      if (!/\.pdf$/i.test(file.name)) return;   // silently ignore non-PDFs
+      items.push({
+        id: Math.random().toString(36).slice(2),
+        file: file,
+        status: "queued",
+        progress: 0
+      });
+      added = true;
+    });
+    if (added) { render(); pump(); }
+  }
+
+  // Convert files one at a time so a big PDF cannot starve the server.
+  function pump() {
+    if (processing) return;
+    var next = null;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].status === "queued") { next = items[i]; break; }
+    }
+    if (!next) { render(); return; }
+    processing = true;
+    next.status = "working";
+    render();
+    convert(next).then(function () {
+      processing = false;
+      pump();
+    });
+  }
+
+  function convert(item) {
+    return new Promise(function (resolve) {
+      var spec = pagesInput.value.trim();
+      var url = "/api/convert" + (spec ? "?pages=" + encodeURIComponent(spec) : "");
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", url);
+      xhr.responseType = "blob";
+
+      function fail(message) {
+        item.status = "error";
+        item.error = message;
+        resolve();
+        render();
+      }
+
+      xhr.upload.onprogress = function (e) {
+        if (e.lengthComputable) {
+          item.progress = e.loaded / e.total;
+          render();
+        }
+      };
+
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          item.status = "done";
+          item.progress = 1;
+          item.url = URL.createObjectURL(xhr.response);
+          if (items.length === 1) download(item);   // single file: auto-download
+          resolve();
+          render();
+        } else {
+          var blob = xhr.response;
+          if (blob && blob.text) {
+            blob.text().then(function (text) {
+              var detail = "";
+              try { detail = JSON.parse(text).detail || ""; } catch (err) {}
+              fail(detail || "Conversion failed (HTTP " + xhr.status + ")");
+            }, function () { fail("Conversion failed (HTTP " + xhr.status + ")"); });
+          } else {
+            fail("Conversion failed (HTTP " + xhr.status + ")");
+          }
+        }
+      };
+
+      xhr.onerror = function () { fail("Network error - is the server running?"); };
+
+      var form = new FormData();
+      form.append("file", item.file);
+      xhr.send(form);
+    });
+  }
+
+  function download(item) {
+    if (!item.url) return;
+    var link = document.createElement("a");
+    link.href = item.url;
+    link.download = item.file.name.replace(/\.pdf$/i, "") + ".docx";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  function render() {
+    queueEl.innerHTML = "";
+    items.forEach(function (item) {
+      var li = document.createElement("li");
+      li.className = "item";
+
+      var meta = document.createElement("div");
+      meta.className = "meta";
+      var name = document.createElement("div");
+      name.className = "name";
+      name.textContent = item.file.name;
+      var size = document.createElement("div");
+      size.className = "size";
+      size.textContent = fmtSize(item.file.size);
+      meta.appendChild(name);
+      meta.appendChild(size);
+      if (item.status === "working") {
+        var bar = document.createElement("div");
+        bar.className = "bar";
+        var fill = document.createElement("div");
+        fill.style.width = Math.round(item.progress * 100) + "%";
+        bar.appendChild(fill);
+        meta.appendChild(bar);
+      }
+      li.appendChild(meta);
+
+      if (item.status === "working") {
+        var spin = document.createElement("div");
+        spin.className = "spinner";
+        li.appendChild(spin);
+      } else if (item.status === "done") {
+        var btn = document.createElement("button");
+        btn.className = "dl";
+        btn.textContent = "Download .docx";
+        btn.addEventListener("click", function () { download(item); });
+        li.appendChild(btn);
+      } else if (item.status === "error") {
+        var err = document.createElement("div");
+        err.className = "status error";
+        err.textContent = item.error || "Failed";
+        li.appendChild(err);
+      } else {
+        var wait = document.createElement("div");
+        wait.className = "status";
+        wait.textContent = "Waiting\u2026";
+        li.appendChild(wait);
+      }
+
+      queueEl.appendChild(li);
+    });
+  }
+})();
+</script>
+</body>
+</html>

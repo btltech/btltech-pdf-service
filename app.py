@@ -1,0 +1,233 @@
+"""BTL Tech - PDF to Word converter (V1 + V2).
+
+Converts digital/text PDF files into editable .docx documents, preserving
+images, tables, headings and general formatting.
+
+Quick start:
+    python3 -m venv .venv
+    .venv/bin/pip install -r requirements.txt
+    .venv/bin/python app.py
+Then open http://127.0.0.1:8000
+
+Configuration (environment variables):
+    PDF2WORD_HOST     interface to bind          (default 0.0.0.0)
+    PDF2WORD_PORT     port to listen on          (default 8000)
+    PDF2WORD_MAX_MB   max upload size in MB      (default 50)
+"""
+
+import logging
+import os
+import re
+import shutil
+import tempfile
+from pathlib import Path
+from typing import Optional, Tuple
+
+# PyMuPDF >= 1.24 exposes the modern `pymupdf` name; older releases only ship
+# the legacy `fitz` alias. NB: pdf2docx still imports `fitz` internally, so the
+# first conversion emits one PyMuPDF deprecation notice. PyMuPDF writes that
+# message straight to file descriptor 2, so it is outside the reach of logging
+# configuration - it is informational only and safe to ignore.
+try:
+    import pymupdf as fitz
+except ImportError:  # pragma: no cover - legacy PyMuPDF
+    import fitz
+
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.background import BackgroundTask
+
+import tools
+from config import HOST, MAX_UPLOAD_MB, PORT
+
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+
+DOCX_MEDIA_TYPE = (
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+)
+
+# Hold the root logger at WARNING so third-party chatter (pdf2docx logs a
+# progress line per page at INFO) stays out of the log, while our own logger
+# still reports every conversion at INFO.
+_handler = logging.StreamHandler()
+_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s  %(message)s"))
+logging.basicConfig(level=logging.WARNING, handlers=[_handler], force=True)
+
+log = logging.getLogger("pdf2word")
+log.setLevel(logging.INFO)
+
+app = FastAPI(title="BTL Tech PDF Toolkit", version="2.0.0")
+
+# Server-side page tools (merge, split, compress, protect ...).
+app.include_router(tools.router)
+
+# Stylesheet and other static assets.
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+def parse_pages(spec: Optional[str]) -> Tuple[Optional[int], Optional[int]]:
+    """Parse a 1-based page spec like '2' or '1-5,8' into (start, end).
+
+    Returns bounds for pdf2docx's simple Converter API, which takes a
+    0-based `start` and an exclusive `end`. (None, None) means all pages.
+    """
+    if not spec or not spec.strip():
+        return None, None
+
+    wanted = set()
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        span = re.fullmatch(r"(\d+)\s*-\s*(\d+)", part)
+        if span:
+            first, last = int(span.group(1)), int(span.group(2))
+            wanted.update(range(min(first, last), max(first, last) + 1))
+        elif part.isdigit():
+            wanted.add(int(part))
+
+    if not wanted or min(wanted) < 1:
+        return None, None
+    return min(wanted) - 1, max(wanted)
+
+
+def _page(name: str) -> HTMLResponse:
+    """Serve one of the static HTML pages."""
+    path = STATIC_DIR / name
+    if not path.is_file():
+        raise HTTPException(404, f"Page '{name}' is not installed")
+    return HTMLResponse(path.read_text(encoding="utf-8"))
+
+
+@app.get("/", response_class=HTMLResponse)
+async def home() -> HTMLResponse:
+    """Toolkit landing page."""
+    return _page("index.html")
+
+
+@app.get("/convert", response_class=HTMLResponse)
+async def convert_page() -> HTMLResponse:
+    """PDF -> Word converter UI."""
+    return _page("convert.html")
+
+
+@app.get("/edit", response_class=HTMLResponse)
+async def edit_page() -> HTMLResponse:
+    """Browser-side PDF editor: annotate, sign, organise pages."""
+    return _page("editor.html")
+
+
+@app.get("/tools", response_class=HTMLResponse)
+async def tools_page() -> HTMLResponse:
+    """Server-side page tools UI."""
+    return _page("tools.html")
+
+
+@app.get("/api/health")
+async def health() -> dict:
+    """Simple readiness probe."""
+    return {"status": "ok", "max_upload_mb": MAX_UPLOAD_MB}
+
+
+@app.post("/api/convert")
+async def convert(
+    file: UploadFile = File(...),
+    pages: Optional[str] = Query(
+        None, description="Optional page range, e.g. '1-5' or '2,4-6'"
+    ),
+):
+    """Convert an uploaded PDF to .docx and stream it back as a download."""
+    filename = file.filename or "document.pdf"
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(400, "Only PDF files are supported (.pdf)")
+
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "The uploaded file is empty")
+    if len(data) > MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(413, f"File is too large - the limit is {MAX_UPLOAD_MB} MB")
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(400, "This file does not look like a valid PDF")
+
+    start, end = parse_pages(pages)
+
+    tmp_dir = tempfile.mkdtemp(prefix="pdf2word_")
+    in_path = os.path.join(tmp_dir, "input.pdf")
+    out_name = Path(filename).stem + ".docx"
+    out_path = os.path.join(tmp_dir, out_name)
+
+    try:
+        with open(in_path, "wb") as handle:
+            handle.write(data)
+
+        # Pre-flight checks with PyMuPDF: fast, and gives friendly errors.
+        doc = fitz.open(in_path)
+        try:
+            if doc.is_encrypted:
+                raise HTTPException(
+                    400, "This PDF is password-protected. Remove the password and retry."
+                )
+            page_count = doc.page_count
+        finally:
+            doc.close()
+
+        if page_count == 0:
+            raise HTTPException(400, "This PDF contains no pages")
+        if start is not None and end is not None and (
+            start >= page_count or end > page_count
+        ):
+            raise HTTPException(
+                400,
+                f"Page range out of bounds - the document has {page_count} "
+                f"page{'s' if page_count != 1 else ''}",
+            )
+
+        def _convert() -> None:
+            # Imported here so the server starts instantly; pdf2docx is heavy.
+            from pdf2docx import Converter
+
+            cv = Converter(in_path)
+            try:
+                kwargs = {} if start is None else {"start": start, "end": end}
+                cv.convert(out_path, **kwargs)
+            finally:
+                cv.close()
+
+        # CPU-bound and blocking, so run it off the event loop.
+        await run_in_threadpool(_convert)
+
+        if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+            raise HTTPException(
+                500,
+                "Conversion produced no output. This usually means the PDF is "
+                "scanned (an image) rather than digital text - OCR is the V3 feature.",
+            )
+
+        converted = (end - start) if start is not None and end is not None else page_count
+        log.info("Converted '%s' (%s page(s)) -> %s", filename, converted, out_name)
+
+        return FileResponse(
+            path=out_path,
+            media_type=DOCX_MEDIA_TYPE,
+            filename=out_name,
+            # Delete the temp working directory once the file has been sent.
+            background=BackgroundTask(shutil.rmtree, tmp_dir, ignore_errors=True),
+        )
+
+    except HTTPException:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+    except Exception as exc:  # noqa: BLE001 - surface any failure to the UI
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        log.exception("Conversion failed for '%s'", filename)
+        raise HTTPException(500, f"Conversion failed: {exc}") from exc
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    log.info("BTL Tech PDF to Word converter listening on http://%s:%s", HOST, PORT)
+    uvicorn.run(app, host=HOST, port=PORT)

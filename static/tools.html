@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Page tools &mdash; BTL Tech</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%93%84</text></svg>" />
+<link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+
+<nav class="top">
+  <span class="logo">BTL Tech</span>
+  <a href="/">Toolkit</a>
+  <a href="/convert">PDF to Word</a>
+  <a href="/edit">Edit PDF</a>
+  <a href="/tools" class="active">Page tools</a>
+</nav>
+
+<header class="page">
+  <h1>Page tools</h1>
+  <p class="sub">Nine ways to change a PDF, without a desktop application. Each one finishes in milliseconds.</p>
+</header>
+
+<main class="grid">
+
+  <section class="card tool" data-endpoint="/api/tools/merge" data-field="files" data-name="merged.pdf">
+    <h2>Merge PDFs</h2>
+    <p class="card-sub">Join two or more PDFs into one, in the order you select them.</p>
+    <label class="pick dropzone">Drop PDFs here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" multiple />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="button-row"><button class="run">Merge</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/split" data-name="extracted.pdf">
+    <h2>Extract pages</h2>
+    <p class="card-sub">Pull out the pages you want as a new PDF, or save each one separately as a ZIP.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Pages</label>
+      <input type="text" name="pages" value="all" placeholder="all, 3 or 1-4,7" />
+      <label class="check"><input type="checkbox" name="separate" /> one file per page (ZIP)</label>
+    </div>
+    <div class="button-row"><button class="run">Extract</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/delete-pages" data-name="pages-deleted.pdf">
+    <h2>Delete pages</h2>
+    <p class="card-sub">Remove the pages you no longer want, keeping the rest in order.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Pages to delete</label>
+      <input type="text" name="pages" placeholder="e.g. 2 or 1,5-7" />
+    </div>
+    <div class="button-row"><button class="run">Delete</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/rotate" data-name="rotated.pdf">
+    <h2>Rotate pages</h2>
+    <p class="card-sub">Fix sideways scans, or turn a single page the right way up.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Angle</label>
+      <select name="angle">
+        <option value="90">90&deg; clockwise</option>
+        <option value="180">180&deg;</option>
+        <option value="270">90&deg; anticlockwise</option>
+      </select>
+      <label>Pages</label>
+      <input type="text" name="pages" value="all" placeholder="all or 1-3" />
+    </div>
+    <div class="button-row"><button class="run">Rotate</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/compress" data-name="compressed.pdf">
+    <h2>Compress</h2>
+    <p class="card-sub">Shrink a heavy PDF by re-encoding oversized images. Text stays untouched and selectable.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Strength</label>
+      <select name="level">
+        <option value="light">Light &mdash; keep quality high</option>
+        <option value="balanced" selected>Balanced &mdash; recommended</option>
+        <option value="strong">Strong &mdash; smallest file</option>
+      </select>
+    </div>
+    <div class="button-row"><button class="run">Compress</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/watermark" data-name="watermarked.pdf">
+    <h2>Watermark</h2>
+    <p class="card-sub">Stamp faint diagonal text across every page &mdash; DRAFT, CONFIDENTIAL, your company name.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Text</label>
+      <input type="text" name="text" value="CONFIDENTIAL" />
+      <label>Colour</label>
+      <select name="colour">
+        <option value="grey" selected>Grey</option>
+        <option value="black">Black</option>
+        <option value="red">Red</option>
+        <option value="blue">Blue</option>
+      </select>
+    </div>
+    <div class="row">
+      <label>Angle</label><input type="number" name="angle" value="45" min="-180" max="180" step="45" />
+      <label>Opacity</label><input type="number" name="opacity" value="0.15" min="0.02" max="1" step="0.05" />
+      <label>Size</label><input type="number" name="font_size" value="48" min="6" max="200" />
+    </div>
+    <div class="button-row"><button class="run">Add watermark</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/page-numbers" data-name="numbered.pdf">
+    <h2>Page numbers</h2>
+    <p class="card-sub">Add &ldquo;Page 1 of 12&rdquo; style numbering to every page.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Position</label>
+      <select name="position">
+        <option value="bottom-centre" selected>Bottom centre</option>
+        <option value="bottom-right">Bottom right</option>
+        <option value="bottom-left">Bottom left</option>
+        <option value="top-right">Top right</option>
+        <option value="top-centre">Top centre</option>
+        <option value="top-left">Top left</option>
+      </select>
+      <label>Start at</label><input type="number" name="start" value="1" min="0" />
+      <label>Size</label><input type="number" name="font_size" value="10" min="6" max="48" />
+    </div>
+    <div class="row">
+      <label>Format</label>
+      <input type="text" name="label_format" value="Page {n} of {total}" />
+    </div>
+    <div class="button-row"><button class="run">Add numbers</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/protect" data-name="protected.pdf">
+    <h2>Password protect</h2>
+    <p class="card-sub">Encrypt with AES-256 and decide what the reader may do with the document.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Password</label>
+      <input type="password" name="password" placeholder="at least 4 characters" />
+    </div>
+    <div class="row">
+      <label>Owner password</label>
+      <input type="password" name="owner_password" placeholder="optional" />
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" name="allow_printing" checked /> allow printing</label>
+      <label class="check"><input type="checkbox" name="allow_copying" /> allow text copying</label>
+    </div>
+    <div class="button-row"><button class="run">Protect</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+  <section class="card tool" data-endpoint="/api/tools/unlock" data-name="unlocked.pdf">
+    <h2>Remove password</h2>
+    <p class="card-sub">Save a protected PDF without its password, so it opens anywhere. You must know the password.</p>
+    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label>Current password</label>
+      <input type="password" name="password" />
+    </div>
+    <div class="button-row"><button class="run">Remove password</button></div>
+    <div class="notice hidden"></div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  Every tool runs on this server, writes to a temporary folder, and deletes your file the moment the download finishes.
+</footer>
+
+<script>
+/* Page tools UI. Each .tool card collects its own fields, posts them, and
+   downloads whatever the server sends back. No framework, no build step. */
+(function () {
+  var cards = document.querySelectorAll(".tool");
+
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1048576).toFixed(1) + " MB";
+  }
+
+  function show(notice, kind, message) {
+    notice.className = "notice " + kind;
+    notice.textContent = message;
+  }
+
+  function filenameFrom(xhr) {
+    var header = xhr.getResponseHeader("Content-Disposition") || "";
+    var encoded = header.match(/filename\*=utf-8''([^;]+)/i);
+    if (encoded) return decodeURIComponent(encoded[1]);
+    var plain = header.match(/filename="?([^";]+)"?/i);
+    return plain ? plain[1] : "";
+  }
+
+  function describeFiles(input, picked) {
+    var count = input.files ? input.files.length : 0;
+    var total = 0;
+    for (var index = 0; index < count; index++) total += input.files[index].size;
+    picked.textContent = count
+      ? count + (count === 1 ? " file selected" : " files selected") + " (" + fmtSize(total) + ")"
+      : "";
+  }
+
+  function collect(card, input) {
+    var form = new FormData();
+    var field = card.dataset.field || "file";
+    for (var index = 0; index < input.files.length; index++) {
+      form.append(field, input.files[index]);
+    }
+    card.querySelectorAll("input[type=text], input[type=number], input[type=password], select")
+      .forEach(function (element) {
+        if (element.name) form.append(element.name, element.value);
+      });
+    // Send checkboxes explicitly, so an unticked box means "false" rather than
+    // being omitted (which would let the server fall back to its own default).
+    card.querySelectorAll("input[type=checkbox]").forEach(function (element) {
+      if (element.name) form.append(element.name, element.checked ? "true" : "false");
+    });
+    return form;
+  }
+
+  function readError(xhr, done) {
+    var blob = xhr.response;
+    if (blob && blob.text) {
+      blob.text().then(function (text) {
+        var detail = "";
+        try { detail = JSON.parse(text).detail || ""; } catch (err) { /* not JSON */ }
+        done(detail || "Failed (HTTP " + xhr.status + ")");
+      }, function () { done("Failed (HTTP " + xhr.status + ")"); });
+    } else {
+      done("Failed (HTTP " + xhr.status + ")");
+    }
+  }
+
+  function send(card, input, button, notice) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", card.dataset.endpoint);
+    xhr.responseType = "blob";
+    button.disabled = true;
+    show(notice, "info", "Working\u2026");
+
+    xhr.onload = function () {
+      button.disabled = false;
+      if (xhr.status !== 200) {
+        readError(xhr, function (message) { show(notice, "err", message); });
+        return;
+      }
+
+      var name = filenameFrom(xhr) || card.dataset.name || "result.pdf";
+      var url = URL.createObjectURL(xhr.response);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      var extra = "";
+      var pages = xhr.getResponseHeader("X-Page-Count");
+      if (pages) extra = " Now " + pages + " page(s).";
+      var before = xhr.getResponseHeader("X-Original-Size");
+      var after = xhr.getResponseHeader("X-New-Size");
+      if (before && after) {
+        extra = " " + fmtSize(Number(before)) + " \u2192 " + fmtSize(Number(after)) + ".";
+      }
+      show(notice, "ok", "Done \u2014 " + name + " downloaded." + extra);
+    };
+
+    xhr.onerror = function () {
+      button.disabled = false;
+      show(notice, "err", "Network error - is the server running?");
+    };
+
+    xhr.send(collect(card, input));
+  }
+
+  // ------------------------------------------------------------- wiring --- 
+  cards.forEach(function (card) {
+    var input = card.querySelector("input[type=file]");
+    var pick = card.querySelector(".pick");
+    var picked = card.querySelector(".picked");
+    var button = card.querySelector(".run");
+    var notice = card.querySelector(".notice");
+
+    input.addEventListener("change", function () { describeFiles(input, picked); });
+
+    ["dragenter", "dragover"].forEach(function (event) {
+      pick.addEventListener(event, function (e) {
+        e.preventDefault();
+        pick.classList.add("drag");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (event) {
+      pick.addEventListener(event, function (e) {
+        e.preventDefault();
+        pick.classList.remove("drag");
+      });
+    });
+    pick.addEventListener("drop", function (e) {
+      var dropped = e.dataTransfer ? e.dataTransfer.files : null;
+      if (!dropped || !dropped.length) return;
+      var transfer = new DataTransfer();
+      for (var index = 0; index < dropped.length; index++) {
+        if (/\.pdf$/i.test(dropped[index].name)) transfer.items.add(dropped[index]);
+      }
+      if (!transfer.files.length) return;
+      input.files = transfer.files;   // supported by current Chrome, Edge, Firefox and Safari
+      describeFiles(input, picked);
+    });
+
+    button.addEventListener("click", function () {
+      if (!input.files || !input.files.length) {
+        show(notice, "err", "Choose a PDF first.");
+        return;
+      }
+      send(card, input, button, notice);
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

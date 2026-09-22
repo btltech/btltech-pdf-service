@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Edit PDF &mdash; BTL Tech</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%93%84</text></svg>" />
+<link rel="stylesheet" href="/static/app.css" />
+<style>
+  main.editor { width:100%; max-width:1400px; display:grid; grid-template-columns:270px minmax(0,1fr); gap:16px; align-items:start; }
+  @media (max-width: 940px) { main.editor { grid-template-columns:1fr; } }
+  .sidebar { display:flex; flex-direction:column; gap:14px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
+  .panel h3 { font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted-2); margin-bottom:12px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:7px; }
+  .tbtn { background:#1b2947; border:1px solid transparent; color:var(--ink); font-size:12px; padding:7px 10px; border-radius:9px; cursor:pointer; font-family:inherit; }
+  .tbtn:hover { background:#24365c; }
+  .tbtn.on { background:var(--accent-2); border-color:#7fa8ff; }
+  .stage { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px; min-width:0; }
+  .stagebar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:2px 4px 12px; }
+  .stagebar .fname { flex:1; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+  #pages { display:flex; flex-direction:column; align-items:center; gap:18px; max-height:76vh; overflow:auto; padding:6px; }
+  .page { position:relative; background:#fff; box-shadow:0 6px 22px rgba(0,0,0,.45); border-radius:3px; line-height:0; }
+  .page canvas { display:block; }
+  .page canvas.overlay { position:absolute; left:0; top:0; cursor:crosshair; touch-action:none; }
+  .page.removed { display:none; }
+  .thumbs { display:grid; grid-template-columns:repeat(auto-fill,minmax(66px,1fr)); gap:8px; max-height:250px; overflow:auto; }
+  .thumb { border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; background:#fff; }
+  .thumb canvas { display:block; width:100%; height:auto; }
+  .thumb .num { float:left; background:rgba(0,0,0,.65); color:#fff; font-size:10px; padding:1px 4px; }
+  .thumb .acts { display:flex; gap:2px; padding:3px; background:var(--panel-2); clear:both; }
+  .thumb .acts button { flex:1; padding:3px 0; font-size:10px; background:#1b2947; }
+  .thumb.deleted { opacity:.45; }
+  input[type=file].visible { display:block; font-size:11px; color:var(--muted); width:100%; }
+  input[type=color] { width:46px; height:31px; padding:0; background:none; border:1px solid var(--line-strong); border-radius:8px; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <span class="logo">BTL Tech</span>
+  <a href="/">Toolkit</a>
+  <a href="/convert">PDF to Word</a>
+  <a href="/edit" class="active">Edit PDF</a>
+  <a href="/tools">Page tools</a>
+</nav>
+
+<header class="page">
+  <h1>Edit PDF</h1>
+  <p class="sub">Add text, draw or sign, highlight, stamp an image, and reorder or delete pages. Nothing is uploaded &mdash; the document stays in this browser tab.</p>
+</header>
+
+<main class="editor">
+  <aside class="sidebar">
+    <div class="panel">
+      <h3>Tools</h3>
+      <div class="toolbar">
+        <button class="tbtn" data-tool="select">Select</button>
+        <button class="tbtn" data-tool="text">Text</button>
+        <button class="tbtn" data-tool="pen">Draw / sign</button>
+        <button class="tbtn" data-tool="highlight">Highlight</button>
+        <button class="tbtn" data-tool="box">Box</button>
+        <button class="tbtn" data-tool="image">Stamp image</button>
+        <button class="tbtn" data-tool="erase">Erase</button>
+      </div>
+      <div class="row">
+        <label>Colour</label><input type="color" id="inkColor" value="#e02020" />
+        <label>Weight</label><input type="number" id="inkWidth" value="2" min="1" max="20" />
+        <label>Text size</label><input type="number" id="textSize" value="14" min="6" max="96" />
+      </div>
+      <div class="row">
+        <label for="textValue">Text</label>
+        <input type="text" id="textValue" placeholder="type, then click the page" />
+      </div>
+      <div class="row"><label for="imageInput">Signature image (PNG or JPG)</label></div>
+      <input type="file" id="imageInput" class="visible" accept="image/png,image/jpeg" />
+      <div class="button-row">
+        <button class="ghost small" id="undoBtn">Undo</button>
+        <button class="ghost small" id="clearBtn">Clear marks</button>
+      </div>
+      <div class="notice hidden" id="toolNotice"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Pages</h3>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="button-row"><button class="ghost small" id="resetBtn">Reset order</button></div>
+    </div>
+  </aside>
+
+  <section class="stage">
+    <div class="stagebar">
+      <span class="fname" id="fileName">No PDF loaded</span>
+      <button class="ghost small" id="zoomOut">&minus;</button>
+      <span class="small muted" id="zoomLabel">100%</span>
+      <button class="ghost small" id="zoomIn">+</button>
+      <button class="small" id="saveBtn" disabled>Download PDF</button>
+    </div>
+
+    <div id="dropzone" class="dropzone">
+      <p><strong>Drop a PDF here</strong> to start editing</p>
+      <p style="margin-top:8px">or <span class="browse">browse your device</span></p>
+      <p class="small muted" style="margin-top:12px">Your file never leaves this device.</p>
+    </div>
+    <input type="file" id="fileInput" accept=".pdf,application/pdf" />
+    <div id="pages"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  Marking up a document happens entirely in your browser using pdf.js and pdf-lib, both served from this site.
+  Added text is written in Helvetica. The editor shows the first 40 pages of very long documents.
+</footer>
+
+<script src="/static/vendor/pdf.min.js"></script>
+<script src="/static/vendor/pdf-lib.min.js"></script>
+<script>
+/* ------------------------------------------------------------- set-up --- */
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/static/vendor/pdf.worker.min.js";
+
+var PAGE_LIMIT = 40;   // keeps the tab responsive on very long documents
+
+var state = {
+  bytes: null,        // the untouched original, reused by pdf-lib when saving
+  name: "",
+  doc: null,          // the pdf.js document
+  pageCount: 0,
+  pages: [],          // original page index -> rendered record
+  order: [],          // display order of original page indices
+  removed: {},        // original page index -> true
+  marks: [],          // annotations, stored in PDF user space
+  tool: "select",
+  steps: [0.6, 0.8, 1, 1.25, 1.5, 2],
+  stepIndex: 2,
+  scale: 1,
+  colour: "#e02020",
+  width: 2,
+  stamp: null,
+  busy: false
+};
+
+var els = {
+  dropzone: document.getElementById("dropzone"),
+  fileInput: document.getElementById("fileInput"),
+  pages: document.getElementById("pages"),
+  thumbs: document.getElementById("thumbs"),
+  fileName: document.getElementById("fileName"),
+  zoomLabel: document.getElementById("zoomLabel"),
+  saveBtn: document.getElementById("saveBtn"),
+  notice: document.getElementById("toolNotice"),
+  textValue: document.getElementById("textValue"),
+  textSize: document.getElementById("textSize"),
+  inkColor: document.getElementById("inkColor"),
+  inkWidth: document.getElementById("inkWidth"),
+  imageInput: document.getElementById("imageInput")
+};
+
+function announce(message, kind) {
+  els.notice.className = "notice " + (kind || "info");
+  els.notice.textContent = message;
+}
+
+function hexToRgb(hex) {
+  var value = String(hex || "#000000").replace("#", "");
+  if (value.length === 3) {
+    value = value.split("").map(function (part) { return part + part; }).join("");
+  }
+  return {
+    r: parseInt(value.slice(0, 2), 16) / 255,
+    g: parseInt(value.slice(2, 4), 16) / 255,
+    b: parseInt(value.slice(4, 6), 16) / 255
+  };
+}
+
+function download(blob, name) {
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+}
+
+/* -------------------------------------------------------- opening a file --- */
+function loadFile(file) {
+  if (!file) return;
+  if (!/\.pdf$/i.test(file.name)) {
+    announce("That is not a PDF file.", "err");
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function () { openDocument(new Uint8Array(reader.result), file.name); };
+  reader.onerror = function () { announce("Could not read that file.", "err"); };
+  reader.readAsArrayBuffer(file);
+}
+
+function openDocument(bytes, name) {
+  state.bytes = bytes;
+  state.name = name;
+  state.marks = [];
+  state.removed = {};
+  els.fileName.textContent = name;
+  els.pages.innerHTML = "";
+  els.thumbs.innerHTML = "";
+  announce("Rendering pages\u2026");
+
+  // pdf.js takes ownership of the buffer it is handed, so give it a copy and
+  // keep the original intact for pdf-lib to write from when saving.
+  pdfjsLib.getDocument({ data: bytes.slice(0) }).promise.then(function (doc) {
+    state.doc = doc;
+    state.pageCount = Math.min(doc.numPages, PAGE_LIMIT);
+    state.order = [];
+    for (var index = 0; index < state.pageCount; index++) state.order.push(index);
+    return renderAll();
+  }).then(function () {
+    els.dropzone.classList.add("hidden");
+    els.saveBtn.disabled = false;
+    var limited = state.doc.numPages > state.pageCount;
+    announce(
+      limited
+        ? "Loaded the first " + state.pageCount + " of " + state.doc.numPages + " pages."
+        : "Loaded " + name + " \u2014 choose a tool, then click the page.",
+      limited ? "info" : "ok"
+    );
+  }).catch(function (error) {
+    announce("Could not open that PDF: " + (error && error.message ? error.message : error), "err");
+  });
+}
+
+function renderAll() {
+  els.pages.innerHTML = "";
+  state.pages = [];
+  var chain = Promise.resolve();
+  for (var index = 0; index < state.pageCount; index++) {
+    chain = chain.then(makeRenderer(index));
+  }
+  return chain.then(function () { applyOrder(); buildThumbs(); });
+}
+
+// One step of the render chain, capturing its own page index.
+function makeRenderer(index) {
+  return function () { return renderPage(index); };
+}
+
+function renderPage(index) {
+  return state.doc.getPage(index + 1).then(function (page) {
+    // The scale-1 viewport is the bridge between screen pixels and PDF points.
+    var viewport1 = page.getViewport({ scale: 1 });
+    var viewport = page.getViewport({ scale: state.scale });
+
+    var container = document.createElement("div");
+    container.className = "page";
+
+    var base = document.createElement("canvas");
+    base.width = Math.floor(viewport.width);
+    base.height = Math.floor(viewport.height);
+
+    var overlay = document.createElement("canvas");
+    overlay.className = "overlay";
+    overlay.width = base.width;
+    overlay.height = base.height;
+
+    container.appendChild(base);
+    container.appendChild(overlay);
+    els.pages.appendChild(container);
+
+    var record = {
+      index: index,
+      viewport1: viewport1,
+      container: container,
+      base: base,
+      overlay: overlay,
+      ctx: overlay.getContext("2d")
+    };
+    state.pages[index] = record;
+    attachTools(record);
+
+    return page.render({ canvasContext: base.getContext("2d"), viewport: viewport })
+      .promise.then(function () { drawMarks(record); });
+  });
+}
+/* Coordinates ---------------------------------------------------------------
+   Marks are stored in PDF user space (origin bottom-left, y upwards), which is
+   exactly the space pdf-lib draws in. pdf.js converts in both directions, so
+   pages carrying a /Rotate entry need no hand-written trigonometry. */
+
+function toPdf(record, canvasX, canvasY) {
+  var point = record.viewport1.convertToPdfPoint(canvasX / state.scale, canvasY / state.scale);
+  return { x: point[0], y: point[1] };
+}
+
+function toCanvas(record, x, y) {
+  var point = record.viewport1.convertToViewportPoint(x, y);
+  return { x: point[0] * state.scale, y: point[1] * state.scale };
+}
+
+function eventPoint(record, event) {
+  var rect = record.overlay.getBoundingClientRect();
+  return {
+    px: (event.clientX - rect.left) * (record.overlay.width / rect.width),
+    py: (event.clientY - rect.top) * (record.overlay.height / rect.height)
+  };
+}
+
+/* Painting the live preview ------------------------------------------------ */
+
+function drawMarks(record) {
+  var ctx = record.ctx;
+  ctx.clearRect(0, 0, record.overlay.width, record.overlay.height);
+  state.marks.forEach(function (mark) {
+    if (mark.page === record.index) paintMark(ctx, record, mark);
+  });
+}
+
+function paintMark(ctx, record, mark) {
+  ctx.save();
+
+  if (mark.type === "ink") {
+    ctx.strokeStyle = mark.colour;
+    ctx.lineWidth = Math.max(1, mark.width * state.scale);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    mark.points.forEach(function (pair, position) {
+      var spot = toCanvas(record, pair[0], pair[1]);
+      if (position === 0) ctx.moveTo(spot.x, spot.y);
+      else ctx.lineTo(spot.x, spot.y);
+    });
+    ctx.stroke();
+
+  } else if (mark.type === "highlight" || mark.type === "box") {
+    var start = toCanvas(record, mark.rect[0], mark.rect[1]);
+    var end = toCanvas(record, mark.rect[2], mark.rect[3]);
+    var x = Math.min(start.x, end.x);
+    var y = Math.min(start.y, end.y);
+    var wide = Math.abs(end.x - start.x);
+    var tall = Math.abs(end.y - start.y);
+    if (mark.type === "highlight") {
+      ctx.fillStyle = "rgba(255, 219, 77, .38)";
+      ctx.fillRect(x, y, wide, tall);
+    } else {
+      ctx.strokeStyle = mark.colour;
+      ctx.lineWidth = Math.max(1, mark.width * state.scale);
+      ctx.strokeRect(x, y, wide, tall);
+    }
+
+  } else if (mark.type === "text") {
+    var spot = toCanvas(record, mark.x, mark.y);
+    ctx.fillStyle = mark.colour;
+    ctx.font = Math.max(4, mark.size * state.scale) + "px Helvetica, Arial, sans-serif";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(mark.text, spot.x, spot.y);
+
+  } else if (mark.type === "image" && mark.image) {
+    var low = toCanvas(record, mark.x, mark.y);
+    var high = toCanvas(record, mark.x + mark.width, mark.y + mark.height);
+    ctx.drawImage(
+      mark.image,
+      Math.min(low.x, high.x), Math.min(low.y, high.y),
+      Math.abs(high.x - low.x), Math.abs(high.y - low.y)
+    );
+  }
+
+  ctx.restore();
+}
+
+/* Hit testing, for the erase tool ------------------------------------------ */
+
+function hitTest(record, point) {
+  var slack = 8 / state.scale;
+  for (var position = state.marks.length - 1; position >= 0; position--) {
+    var mark = state.marks[position];
+    if (mark.page !== record.index) continue;
+
+    if (mark.type === "ink") {
+      for (var index = 0; index < mark.points.length; index++) {
+        if (Math.abs(mark.points[index][0] - point.x) < slack &&
+            Math.abs(mark.points[index][1] - point.y) < slack) return mark;
+      }
+    } else if (mark.rect) {
+      var box = normalise(mark.rect);
+      if (point.x >= box.x - slack && point.x <= box.x + box.width + slack &&
+          point.y >= box.y - slack && point.y <= box.y + box.height + slack) return mark;
+    } else if (mark.type === "image") {
+      if (point.x >= mark.x - slack && point.x <= mark.x + mark.width + slack &&
+          point.y >= mark.y - slack && point.y <= mark.y + mark.height + slack) return mark;
+    } else if (mark.type === "text") {
+      var reach = mark.text.length * mark.size * 0.55;
+      if (point.x >= mark.x - slack && point.x <= mark.x + reach &&
+          point.y >= mark.y - mark.size && point.y <= mark.y + slack) return mark;
+    }
+  }
+  return null;
+}
+
+/* Pointer handling on a page ----------------------------------------------- */
+
+function attachTools(record) {
+  var drafting = null;
+
+  record.overlay.addEventListener("pointerdown", function (event) {
+    if (state.busy) return;
+    var spot = eventPoint(record, event);
+    var point = toPdf(record, spot.px, spot.py);
+    if (record.overlay.setPointerCapture) {
+      record.overlay.setPointerCapture(event.pointerId);
+    }
+
+    if (state.tool === "select") {
+      announce("Pick a tool on the left, then work on the page.", "info");
+      return;
+    }
+
+    if (state.tool === "erase") {
+      var found = hitTest(record, point);
+      if (found) {
+        state.marks.splice(state.marks.indexOf(found), 1);
+        drawMarks(record);
+        announce("Removed one mark.", "ok");
+      }
+      return;
+    }
+
+    if (state.tool === "text") {
+      var typed = els.textValue.value.trim();
+      if (!typed) {
+        announce("Type your text in the box first, then click the page.", "err");
+        return;
+      }
+      state.marks.push({
+        page: record.index,
+        type: "text",
+        x: point.x,
+        y: point.y,
+        text: typed,
+        size: Math.max(6, Number(els.textSize.value) || 14),
+        colour: state.colour
+      });
+      drawMarks(record);
+      return;
+    }
+
+    if (state.tool === "image") {
+      if (!state.stamp) {
+        announce("Choose a signature image first.", "err");
+        return;
+      }
+      state.marks.push({
+        page: record.index,
+        type: "image",
+        x: point.x,
+        y: point.y,
+        width: state.stamp.width,
+        height: state.stamp.height,
+        dataUrl: state.stamp.dataUrl,
+        image: state.stamp.image
+      });
+      drawMarks(record);
+      return;
+    }
+
+    if (state.tool === "pen") {
+      drafting = {
+        page: record.index,
+        type: "ink",
+        points: [[point.x, point.y]],
+        colour: state.colour,
+        width: state.width
+      };
+      state.marks.push(drafting);
+      return;
+    }
+
+    drafting = {
+      page: record.index,
+      type: state.tool,
+      rect: [point.x, point.y, point.x, point.y],
+      anchor: [point.x, point.y],
+      colour: state.colour,
+      width: state.width
+    };
+    state.marks.push(drafting);
+  });
+
+  record.overlay.addEventListener("pointermove", function (event) {
+    if (!drafting) return;
+    var spot = eventPoint(record, event);
+    var point = toPdf(record, spot.px, spot.py);
+    if (drafting.type === "ink") {
+      drafting.points.push([point.x, point.y]);
+    } else {
+      drafting.rect = [drafting.anchor[0], drafting.anchor[1], point.x, point.y];
+    }
+    drawMarks(record);
+  });
+
+  function finish() {
+    if (!drafting) return;
+    var done = drafting;
+    drafting = null;
+
+    if (done.type === "ink" && done.points.length < 2) {
+      state.marks.splice(state.marks.indexOf(done), 1);        // a dot, not a stroke
+    } else if (done.rect) {
+      delete done.anchor;
+      var box = normalise(done.rect);
+      if (box.width < 2 && box.height < 2) {
+        state.marks.splice(state.marks.indexOf(done), 1);      // an accidental click
+      }
+    }
+    drawMarks(record);
+  }
+
+  record.overlay.addEventListener("pointerup", finish);
+  record.overlay.addEventListener("pointercancel", finish);
+  record.overlay.addEventListener("pointerleave", finish);
+}
+/* ------------------------------------------------------------- the tools --- */
+function setTool(tool) {
+  state.tool = tool;
+  Array.prototype.forEach.call(document.querySelectorAll(".tbtn"), function (button) {
+    button.classList.toggle("on", button.dataset.tool === tool);
+  });
+  var hints = {
+    select: "Click a tool on the left, then work on the page.",
+    text: "Type your text in the box, then click where it belongs.",
+    pen: "Drag on the page to draw, or to sign your name.",
+    highlight: "Drag across the area you want to highlight.",
+    box: "Drag to draw a rectangle.",
+    image: "Choose an image, then click the page to stamp it.",
+    erase: "Click a mark to delete it."
+  };
+  if (hints[tool]) announce(hints[tool], "info");
+}
+
+Array.prototype.forEach.call(document.querySelectorAll(".tbtn"), function (button) {
+  button.addEventListener("click", function () { setTool(button.dataset.tool); });
+});
+
+els.inkColor.addEventListener("input", function () { state.colour = els.inkColor.value; });
+
+els.inkWidth.addEventListener("input", function () {
+  state.width = Math.max(1, Number(els.inkWidth.value) || 2);
+});
+
+els.imageInput.addEventListener("change", function () {
+  var file = els.imageInput.files && els.imageInput.files[0];
+  if (!file) return;
+  if (!/^image\/(png|jpeg)$/.test(file.type)) {
+    announce("Use a PNG or JPG image.", "err");
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function () {
+    var image = new Image();
+    image.onload = function () {
+      var wide = 180;                       // points on the page
+      state.stamp = {
+        dataUrl: reader.result,
+        image: image,
+        width: wide,
+        height: Math.max(1, Math.round(wide * image.height / image.width))
+      };
+      setTool("image");
+      announce("Image ready \u2014 click the page to place it.", "ok");
+    };
+    image.onerror = function () { announce("Could not read that image.", "err"); };
+    image.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("undoBtn").addEventListener("click", function () {
+  if (!state.marks.length) { announce("Nothing to undo yet.", "info"); return; }
+  state.marks.pop();
+  redrawAll();
+  announce("Undid the last mark.", "ok");
+});
+
+document.getElementById("clearBtn").addEventListener("click", function () {
+  if (!state.marks.length) { announce("No marks to clear.", "info"); return; }
+  state.marks = [];
+  redrawAll();
+  announce("Cleared every mark.", "ok");
+});
+
+function redrawAll() {
+  state.pages.forEach(function (record) { if (record) drawMarks(record); });
+}
+
+/* ------------------------------------------------------------------ zoom --- */
+function setZoom(step) {
+  var next = Math.max(0, Math.min(state.steps.length - 1, step));
+  if (next === state.stepIndex) return;
+  state.stepIndex = next;
+  state.scale = state.steps[next];
+  els.zoomLabel.textContent = Math.round(state.scale * 100) + "%";
+  announce("Re-rendering at " + Math.round(state.scale * 100) + "%\u2026");
+  renderAll().then(function () {
+    announce("Ready at " + Math.round(state.scale * 100) + "%.", "ok");
+  });
+}
+/* Page order and the thumbnails panel -------------------------------------- */
+
+function applyOrder() {
+  state.order.forEach(function (index) {
+    var record = state.pages[index];
+    if (!record) return;
+    record.container.classList.toggle("removed", !!state.removed[index]);
+    els.pages.appendChild(record.container);
+  });
+}
+
+function buildThumbs() {
+  els.thumbs.innerHTML = "";
+  state.order.forEach(function (index, position) {
+    var record = state.pages[index];
+    if (!record) return;
+
+    var box = document.createElement("div");
+    box.className = "thumb" + (state.removed[index] ? " deleted" : "");
+
+    var preview = document.createElement("canvas");
+    var wide = 72;
+    preview.width = wide;
+    preview.height = Math.max(1, Math.round(wide * record.base.height / record.base.width));
+    preview.getContext("2d").drawImage(record.base, 0, 0, preview.width, preview.height);
+    box.appendChild(preview);
+
+    var label = document.createElement("span");
+    label.className = "num";
+    label.textContent = String(position + 1);
+    box.appendChild(label);
+
+    var actions = document.createElement("div");
+    actions.className = "acts";
+    actions.appendChild(miniButton("\u2191", "Move this page earlier", function () {
+      movePage(position, -1);
+    }));
+    actions.appendChild(miniButton("\u2193", "Move this page later", function () {
+      movePage(position, 1);
+    }));
+    actions.appendChild(miniButton(
+      state.removed[index] ? "\u21ba" : "\u2715",
+      state.removed[index] ? "Put this page back" : "Leave this page out",
+      function () { togglePage(index); }
+    ));
+    box.appendChild(actions);
+
+    els.thumbs.appendChild(box);
+  });
+}
+
+function miniButton(label, title, handler) {
+  var button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.title = title;
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function movePage(position, delta) {
+  var target = position + delta;
+  if (target < 0 || target >= state.order.length) return;
+  var moved = state.order.splice(position, 1)[0];
+  state.order.splice(target, 0, moved);
+  applyOrder();
+  buildThumbs();
+}
+
+function togglePage(index) {
+  state.removed[index] = !state.removed[index];
+  applyOrder();
+  buildThumbs();
+  announce(
+    (state.removed[index] ? "Page left out" : "Page restored") +
+    " \u2014 " + livePages().length + " page(s) will be saved.",
+    "ok"
+  );
+}
+
+function livePages() {
+  return state.order.filter(function (index) { return !state.removed[index]; });
+}
+
+/* ------------------------------------------------------------------ wired up --- */
+
+els.dropzone.addEventListener("click", function () { els.fileInput.click(); });
+els.dropzone.addEventListener("keydown", function (event) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    els.fileInput.click();
+  }
+});
+els.fileInput.addEventListener("change", function () {
+  loadFile(els.fileInput.files && els.fileInput.files[0]);
+  els.fileInput.value = "";
+});
+["dragenter", "dragover"].forEach(function (event) {
+  els.dropzone.addEventListener(event, function (e) {
+    e.preventDefault();
+    els.dropzone.classList.add("drag");
+  });
+});
+["dragleave", "drop"].forEach(function (event) {
+  els.dropzone.addEventListener(event, function (e) {
+    e.preventDefault();
+    els.dropzone.classList.remove("drag");
+  });
+});
+els.dropzone.addEventListener("drop", function (event) {
+  var files = event.dataTransfer ? event.dataTransfer.files : null;
+  if (files && files.length) loadFile(files[0]);
+});
+
+document.getElementById("zoomIn").addEventListener("click", function () {
+  setZoom(state.stepIndex + 1);
+});
+document.getElementById("zoomOut").addEventListener("click", function () {
+  setZoom(state.stepIndex - 1);
+});
+document.getElementById("saveBtn").addEventListener("click", save);
+document.getElementById("resetBtn").addEventListener("click", function () {
+  state.removed = {};
+  state.order = [];
+  for (var index = 0; index < state.pageCount; index++) state.order.push(index);
+  applyOrder();
+  buildThumbs();
+  announce("Page order and any pages left out have been reset.", "ok");
+});
+
+els.zoomLabel.textContent = Math.round(state.scale * 100) + "%";
+setTool("select");
+/* Saving: write the marks into a fresh PDF with pdf-lib ---------------------- */
+
+function save() {
+  if (state.busy) return;
+  var live = livePages();
+  if (!live.length) {
+    announce("Keep at least one page before saving.", "err");
+    return;
+  }
+
+  state.busy = true;
+  els.saveBtn.disabled = true;
+  announce("Writing your PDF\u2026");
+
+  var mapping = {};
+  live.forEach(function (index, position) { mapping[index] = position; });
+
+  PDFLib.PDFDocument.load(state.bytes, { ignoreEncryption: true })
+    .then(function (source) {
+      return PDFLib.PDFDocument.create().then(function (output) {
+        return output.copyPages(source, live).then(function (copied) {
+          copied.forEach(function (page) { output.addPage(page); });
+          return output;
+        });
+      });
+    })
+    .then(function (output) {
+      return output.embedFont(PDFLib.StandardFonts.Helvetica).then(function (font) {
+        return paint(output, font, mapping).then(function () { return output; });
+      });
+    })
+    .then(function (output) { return output.save(); })
+    .then(function (bytes) {
+      var name = state.name.replace(/\.pdf$/i, "") + "-edited.pdf";
+      download(new Blob([bytes], { type: "application/pdf" }), name);
+      announce(
+        "Saved " + name + " \u2014 " + live.length + " page(s) and " +
+        state.marks.length + " mark(s).",
+        "ok"
+      );
+    })
+    .catch(function (error) {
+      announce("Could not save: " + (error && error.message ? error.message : error), "err");
+    })
+    .then(function () {
+      state.busy = false;
+      els.saveBtn.disabled = false;
+    });
+}
+
+// Draw every mark onto the copied pages. The marks were captured in PDF user
+// space, which is pdf-lib's own space, so no coordinates need flipping here.
+function paint(output, font, mapping) {
+  var chain = Promise.resolve();
+  var images = {};
+
+  state.marks.forEach(function (mark) {
+    var target = mapping[mark.page];
+    if (target === undefined) return;              // that page was left out
+    var page = output.getPage(target);
+    var tint = hexToRgb(mark.colour || "#000000");
+
+    if (mark.type === "text") {
+      page.drawText(mark.text, {
+        x: mark.x,
+        y: mark.y,
+        size: mark.size,
+        font: font,
+        color: PDFLib.rgb(tint.r, tint.g, tint.b)
+      });
+
+    } else if (mark.type === "ink") {
+      for (var position = 1; position < mark.points.length; position++) {
+        page.drawLine({
+          start: { x: mark.points[position - 1][0], y: mark.points[position - 1][1] },
+          end: { x: mark.points[position][0], y: mark.points[position][1] },
+          thickness: mark.width,
+          color: PDFLib.rgb(tint.r, tint.g, tint.b),
+          lineCap: PDFLib.LineCapStyle.Round
+        });
+      }
+
+    } else if (mark.type === "highlight") {
+      var glow = normalise(mark.rect);
+      page.drawRectangle({
+        x: glow.x,
+        y: glow.y,
+        width: glow.width,
+        height: glow.height,
+        color: PDFLib.rgb(1, 0.86, 0.3),
+        opacity: 0.38
+      });
+
+    } else if (mark.type === "box") {
+      var area = normalise(mark.rect);
+      page.drawRectangle({
+        x: area.x,
+        y: area.y,
+        width: area.width,
+        height: area.height,
+        borderColor: PDFLib.rgb(tint.r, tint.g, tint.b),
+        borderWidth: mark.width
+      });
+
+    } else if (mark.type === "image") {
+      var url = mark.dataUrl;
+      if (!images[url]) images[url] = embedImage(output, url);
+      chain = chain.then(function () { return images[url]; }).then(function (embedded) {
+        output.getPage(target).drawImage(embedded, {
+          x: mark.x,
+          y: mark.y,
+          width: mark.width,
+          height: mark.height
+        });
+      });
+    }
+  });
+
+  return chain;
+}
+
+// Turn a pair of opposite corners into a normalised rectangle.
+function normalise(rect) {
+  var x0 = Math.min(rect[0], rect[2]);
+  var y0 = Math.min(rect[1], rect[3]);
+  var x1 = Math.max(rect[0], rect[2]);
+  var y1 = Math.max(rect[1], rect[3]);
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+}
+
+// Embed a data: URL from the browser as a PDF image object.
+function embedImage(output, dataUrl) {
+  var base64 = String(dataUrl).split(",")[1] || "";
+  var binary = atob(base64);
+  var buffer = new Uint8Array(binary.length);
+  for (var index = 0; index < binary.length; index++) {
+    buffer[index] = binary.charCodeAt(index);
+  }
+  return /^data:image\/png/i.test(dataUrl) ? output.embedPng(buffer) : output.embedJpg(buffer);
+}
+</script>
+</body>
+</html>
