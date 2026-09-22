@@ -208,7 +208,13 @@ function openDocument(bytes, name) {
 
   // pdf.js takes ownership of the buffer it is handed, so give it a copy and
   // keep the original intact for pdf-lib to write from when saving.
-  pdfjsLib.getDocument({ data: bytes.slice(0) }).promise.then(function (doc) {
+  //
+  // isEvalSupported: false closes CVE-2024-4367. pdf.js before 4.2.67 (this is
+  // 3.11.174) compiles font glyph paths with `new Function`, so a crafted
+  // FontMatrix in an opened PDF could run script on this origin. With eval off
+  // pdf.js interprets the glyph commands instead: same rendering, slightly
+  // slower on font-heavy pages. Keep this flag even after upgrading pdf.js.
+  pdfjsLib.getDocument({ data: bytes.slice(0), isEvalSupported: false }).promise.then(function (doc) {
     state.doc = doc;
     state.pageCount = Math.min(doc.numPages, PAGE_LIMIT);
     state.order = [];
