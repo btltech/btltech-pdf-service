@@ -1,0 +1,10 @@
+{
+  "name": "btltech-pdf-service-tests",
+  "private": true,
+  "description": "Browser test tooling only. The service itself needs no Node.js.",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "devDependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
