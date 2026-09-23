@@ -216,15 +216,28 @@ function pick(ev) {
     if (area < bestArea) { best = i; bestArea = area; }
   });
   if (best < 0) return;
-  state.selected = best;
+  selectRun(best);
+  $("newtext").focus();
+}
+
+/**
+ * Open one line for editing.
+ *
+ * Clicking and the test hook both come through here. They used to have a copy
+ * of this each, which is how they drifted apart: a fix to the click path left
+ * the hook testing something the customer no longer did.
+ */
+function selectRun(i) {
+  if (i < 0 || i >= state.runs.length) throw new Error("no such run: " + i);
+  state.selected = i;
   drawOverlay();
-  const run = state.runs[best];
+  const run = state.runs[i];
   $("editor").hidden = false;
   $("pickhint").hidden = true;
   $("original").textContent = run.text;
   $("newtext").value = run.text;
-  $("newtext").focus();
   clearPreview();
+  restoreKept();
   hideStatus();
 }
 
@@ -235,6 +248,58 @@ function clearPreview() {
   $("aftercap").hidden = true;
   $("keep").disabled = true;
   $("details").hidden = true;
+  setKeepHint();
+}
+
+/**
+ * Draw a version of the document into the preview pane.
+ *
+ * These bytes are whatever the workflow last produced, which while the export
+ * is locked means the watermarked copy - so this shows the customer their work
+ * without a clean file ever being made. It is deliberately the only place that
+ * renders the pane, because the previous code cleared it from four different
+ * places and one of them threw away work the customer had just kept.
+ */
+function showResult(bytes, caption) {
+  if (!bytes) return false;
+  if (state.previewDoc) { try { P.FPDF_CloseDocument(state.previewDoc); } catch { /* gone */ } state.previewDoc = null; }
+  const opened = E.openDoc(bytes);
+  if (opened.refused) return false;
+  state.previewDoc = opened.doc;
+  const page = P.FPDF_LoadPage(opened.doc, state.pageIndex);
+  renderPageTo(page, $("previewcanvas"), state.model.w, state.model.h, state.scale);
+  $("previewwrap").hidden = false;
+  $("aftercap").hidden = false;
+  $("aftercap").innerHTML = caption;
+  return true;
+}
+
+const plural = (n) => (n === 1 ? "" : "s");
+
+/**
+ * Put the changes already kept back on screen.
+ *
+ * Clicking another line, or typing, used to blank the pane, which made it look
+ * as though everything done so far had been thrown away. It never had been -
+ * the edits were still in state.edits and all of them were in the saved file -
+ * but nothing on screen said so, so people stopped after one change.
+ */
+function restoreKept() {
+  const n = state.edits.length;
+  if (!n || !state.working) return;
+  showResult(state.working,
+    `Your ${n} change${plural(n)} so far &mdash; this is what will be saved`);
+}
+
+/** Say which step the customer is on, so the disabled button is not a puzzle. */
+function setKeepHint() {
+  const hint = $("keephint");
+  if (!hint) return;
+  if ($("keep").disabled) {
+    hint.textContent = "Press Preview first. Then this button keeps the change and lets you edit another line.";
+  } else {
+    hint.textContent = "Keeping it adds this change to the others and returns you to the page.";
+  }
 }
 
 // ----------------------------------------------------------------- editing ---
@@ -261,17 +326,18 @@ async function preview() {
     }
 
     state.preview = res.savedBytes;
-    const opened = E.openDoc(res.savedBytes);
-    state.previewDoc = opened.doc;
-    const page = P.FPDF_LoadPage(opened.doc, state.pageIndex);
-    const wPt = state.model.w, hPt = state.model.h;
-    renderPageTo(page, $("previewcanvas"), wPt, hPt, state.scale);
-    $("previewwrap").hidden = false;
-    $("aftercap").hidden = false;
+    const done = state.edits.length;
+    showResult(res.savedBytes, done
+      ? `This change and your ${done} earlier one${plural(done)} &mdash; this is what will be saved`
+      : "After your change &mdash; this is exactly what will be saved");
     $("keep").disabled = false;
+    setKeepHint();
+    // The next step is a button that was greyed out until this moment, so send
+    // the customer to it rather than leaving them to find it.
+    $("keep").focus();
     renderActions();
     showDetails(res);
-    say("Checked and ready. Look at the preview, then save it.", "ok");
+    say('Checked and ready. Click <strong>Keep this change</strong> to add it, then edit another line or save.', "ok");
   } catch (err) {
     say(`Something went wrong while editing: ${esc(err.message)}`, "bad");
     clearPreview();
@@ -308,9 +374,15 @@ async function keepEdit() {
   state.edits = state.pending;
   state.pending = null;
   state.working = state.preview;
-  say(`${state.edits.length} change${state.edits.length === 1 ? "" : "s"} so far. Keep editing, or save when you are done.`, "ok");
-  clearPreview();
+  const n = state.edits.length;
+  // showPage re-reads the ORIGINAL document, which is what keeps line numbering
+  // and the click targets stable. That is right, but on its own it wiped the
+  // result off the screen and the customer saw their work vanish - so the kept
+  // version goes straight back up beside it.
   await showPage(state.pageIndex);
+  restoreKept();
+  say(`${n} change${plural(n)} kept, and the panel on the right shows all of them together. `
+      + "Click another line to change something else, or save when you are done.", "ok");
 }
 
 /**
@@ -430,10 +502,10 @@ dz.addEventListener("drop", (e) => loadFile(e.dataTransfer.files[0]));
 $("overlay").addEventListener("click", pick);
 $("preview").addEventListener("click", preview);
 $("keep").addEventListener("click", keepEdit);
-$("cancel").addEventListener("click", () => { state.selected = -1; $("editor").hidden = true; $("pickhint").hidden = false; clearPreview(); drawOverlay(); hideStatus(); });
+$("cancel").addEventListener("click", () => { state.selected = -1; $("editor").hidden = true; $("pickhint").hidden = false; clearPreview(); restoreKept(); drawOverlay(); hideStatus(); });
 $("prev").addEventListener("click", () => showPage(state.pageIndex - 1));
 $("next").addEventListener("click", () => showPage(state.pageIndex + 1));
-$("newtext").addEventListener("input", () => { clearPreview(); });
+$("newtext").addEventListener("input", () => { clearPreview(); restoreKept(); });
 let resizeTimer = null;
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(layout, 150); });
 window.addEventListener("beforeunload", closeDocs);
@@ -447,6 +519,10 @@ window.__edittext = {
   get edits() { return state.edits.length; },
   get locked() { return state.locked; },
   get docHash() { return state.docHash; },
+  // The document as it stands with every kept change applied. While the export
+  // is locked this is the watermarked copy, exactly as the customer sees it -
+  // the hook deliberately cannot reach a clean one.
+  get workingBytes() { return state.working; },
   keepEdit() { return keepEdit(); },
   get lastSaved() {
     // after an edit is kept, state.result is cleared; the edit itself is what
@@ -455,18 +531,7 @@ window.__edittext = {
     if (state.result) return { action: state.result.action, outcome: state.result.outcome, integrity: state.result.integrity, newText: state.result.newText };
     return last ? { action: "kept", outcome: "EDITED", newText: last.newText } : null;
   },
-  selectRun(i) {
-    if (i < 0 || i >= state.runs.length) throw new Error("no such run: " + i);
-    state.selected = i;
-    drawOverlay();
-    const run = state.runs[i];
-    $("editor").hidden = false;
-    $("pickhint").hidden = true;
-    $("original").textContent = run.text;
-    $("newtext").value = run.text;
-    clearPreview();
-    hideStatus();
-  },
+  selectRun(i) { return selectRun(i); },
 };
 
 $("loading").hidden = true;

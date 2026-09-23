@@ -213,6 +213,65 @@ status = await statusText();
 check("a scanned page is refused, in plain words", /scan/i.test(status), status.slice(0, 80));
 check("a scanned page offers nothing to click", await page.evaluate(() => window.__edittext.boxes.every((b) => b.blank)));
 
+console.log("\n=== more than one change to the same document ===");
+// This section exists because of a real fault. Keeping a change re-read the
+// ORIGINAL document to redraw the page - correct, and what keeps line numbers
+// stable - but it also wiped the result pane, so the customer watched their
+// work disappear and reasonably concluded only one edit was possible. Every
+// edit was in fact still being saved; nothing on screen said so.
+await page.click("#prev").catch(() => {});
+await page.waitForFunction(() => document.getElementById("pagelabel").textContent.includes("1 of 2"), null, { timeout: 15000 });
+
+const refLine = (await runs()).findIndex((t) => t.includes("Reference"));
+await selectRun(refLine);
+await typeAndPreview("Reference: NW-9001");
+await page.click("#keep");
+await page.waitForFunction(() => window.__edittext.edits === 1, null, { timeout: 20000 });
+check("the kept change stays on screen", await page.evaluate(() => !document.getElementById("previewwrap").hidden));
+check("and the pane says how much is held", /1 change so far/i.test(await page.$eval("#aftercap", (e) => e.textContent)),
+      await page.$eval("#aftercap", (e) => e.textContent));
+
+const amountLine = (await runs()).findIndex((t) => t.includes("Amount due"));
+await selectRun(amountLine);
+check("picking another line does not wipe it", await page.evaluate(() => !document.getElementById("previewwrap").hidden));
+await typeAndPreview("Amount due: 2,500.00");
+check("the new preview says it includes the earlier change",
+      /earlier one/i.test(await page.$eval("#aftercap", (e) => e.textContent)),
+      await page.$eval("#aftercap", (e) => e.textContent));
+await page.click("#keep");
+await page.waitForFunction(() => window.__edittext.edits === 2, null, { timeout: 20000 });
+check("two changes are held at once", await page.evaluate(() => window.__edittext.edits) === 2);
+
+// Both must survive into the file itself, not just the screen.
+const bothInFile = await page.evaluate(async () => {
+  const E = await import("/static/edittext/engine.mjs");
+  const doc = E.openDoc(window.__edittext.workingBytes);
+  if (!doc.doc) return "could not open the working copy";
+  const P = E.P, page0 = P.FPDF_LoadPage(doc.doc, 0), tp = P.FPDFText_LoadPage(page0);
+  const n = P.FPDFText_CountChars(tp);
+  let text = "";
+  for (let i = 0; i < n; i++) text += String.fromCharCode(P.FPDFText_GetUnicode(tp, i));
+  P.FPDFText_ClosePage(tp); P.FPDF_ClosePage(page0); P.FPDF_CloseDocument(doc.doc);
+  return text;
+});
+check("both changes are in the document, not only on screen",
+      typeof bothInFile === "string" && bothInFile.includes("NW-9001") && bothInFile.includes("2,500.00"),
+      typeof bothInFile === "string" ? "NW-9001:" + bothInFile.includes("NW-9001") + " 2,500.00:" + bothInFile.includes("2,500.00") : bothInFile);
+
+console.log("\n=== the two-step edit is explained, not just enforced ===");
+check("the hint tells you Preview comes first",
+      /Press Preview first/i.test(await page.$eval("#keephint", (e) => e.textContent)));
+
+// Put the document back as this section found it. The checks below save a file
+// and then have it read by a different PDF engine, which asserts that nothing
+// EXCEPT the one edit moved - so the two changes just made have to go.
+await page.reload({ waitUntil: "load" });
+await page.waitForFunction(() => window.__edittext, null, { timeout: 30000 });
+await page.setInputFiles("#file", SOURCE);
+await page.waitForFunction(() => window.__edittext.runs.length > 0, null, { timeout: 30000 });
+await page.click("#next");
+await page.waitForFunction(() => document.getElementById("pagelabel").textContent.includes("2 of 2"), null, { timeout: 15000 });
+
 console.log("\n=== saving ===");
 await page.click("#prev");
 await page.waitForFunction(() => document.getElementById("pagelabel").textContent.includes("1 of 2"), null, { timeout: 15000 });
