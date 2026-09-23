@@ -82,7 +82,14 @@ def _connect():
     if _pool is None:
         import psycopg_pool                                   # imported lazily
 
-        _pool = psycopg_pool.ConnectionPool(config.DATABASE_URL, min_size=1, max_size=4, open=True)
+        # autocommit, because every operation here is a single statement that
+        # must be durable the moment it returns. Without it each request opened a
+        # transaction that was never committed, so the counter reset between
+        # requests and the free allowance was effectively unlimited.
+        _pool = psycopg_pool.ConnectionPool(
+            config.DATABASE_URL, min_size=1, max_size=4, open=True,
+            kwargs={"autocommit": True},
+        )
     return _pool
 
 
