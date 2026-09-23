@@ -236,6 +236,17 @@ check(
 # The service can answer on several hostnames. Only the ones it is told about
 # should be redirected: getting this wrong would send the Railway URL, or
 # localhost, into a loop.
+print("\n=== the homepage tells people where they stand ===")
+home = client.get("/").text
+check("it says what is free and what is not, before anyone starts",
+      "one free conversion a day" in home and ("\u00a31" in home or "&pound;1" in home))
+check("it does not claim a single editor never uploads, now there are two of each kind",
+      "The editor never uploads anything at all" not in home)
+check("it names which tools do send the file to the server",
+      "PDF to Word and the page tools convert your file on this server" in home)
+check("the four cards are laid out as a block, not three and a gap",
+      'class="grid pairs"' in home)
+
 print("\n=== a deployment reaches people ===")
 r = client.get("/static/app.css")
 check("static files are revalidated rather than held for hours",
