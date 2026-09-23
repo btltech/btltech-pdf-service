@@ -123,6 +123,7 @@ def source_page() -> HTMLResponse:
   <a href="/">Toolkit</a>
   <a href="/convert">PDF to Word</a>
   <a href="/edit">Edit PDF</a>
+  <a href="/edit-text">Edit existing text</a>
   <a href="/tools">Page tools</a>
 </nav>
 <header class="page">
@@ -146,7 +147,8 @@ def source_page() -> HTMLResponse:
   PDF service only; no other BTLTECH LTD software is part of it.</p>
 </main>
 <footer class="foot">
-  <span class="source-line"><a href="/source">Source code</a> &middot; Free software under the
+  <span class="source-line"><a href="/source">Source code</a> &middot; <a href="/privacy">Privacy</a>
+  &middot; Free software under the
   <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL v3</a> &middot; No warranty</span>
 </footer>
 </body>
