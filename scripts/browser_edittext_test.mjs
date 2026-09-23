@@ -143,12 +143,10 @@ check("the page keeps its shape on screen",
 check("the layout does not overflow the screen",
   await page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 1),
   await page.evaluate(() => `body ${document.body.scrollWidth} vs viewport ${window.innerWidth}`));
-check("the text is big enough to be worth tapping",
+check("the page fits the space it is given",
   await page.evaluate(() => {
-    const c = document.getElementById("page");
-    const shrink = c.getBoundingClientRect().width / c.width;
-    const boxes = window.__edittext.boxes.filter((b) => !b.blank);
-    return boxes.length === 0 || Math.max(...boxes.map((b) => (b.box[3] - b.box[1]) * shrink)) >= 9;
+    const wrap = document.getElementById("pagewrap");
+    return document.getElementById("page").width <= wrap.clientWidth + 1;
   }));
 // A CDN in front of the site injects requests of its own - analytics and bot
 // detection - which are not this page's doing and cannot be prevented from here.

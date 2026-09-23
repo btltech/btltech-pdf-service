@@ -152,13 +152,12 @@ function layout() {
   // squashed into a 309px column - the document came out visibly distorted.
   const avail = $("pagewrap").clientWidth || 0;
   const fit = avail > 80 ? Math.min(avail, 900) : 760;
-  let scale = fit / state.model.w;
-  // Fitting a whole A4 page across a phone makes 12pt text about five pixels
-  // tall, which is neither readable nor tappable. Below this the page is shown
-  // at a usable size and scrolls sideways instead, the way any PDF reader does.
-  const READABLE = 0.95;
-  if (scale < READABLE) scale = READABLE;
-  state.scale = Math.max(0.5, Math.min(2.5, scale));
+  // The page is fitted to the space it has. Drawing it larger and letting the
+  // frame scroll was tried and made things worse: a canvas wider than the phone
+  // made the browser zoom the whole page out to fit, which shrank the text more
+  // than fitting it ever did. On a small screen the text ends up small, and
+  // pinch-zoom is the answer, exactly as it is in any PDF reader.
+  state.scale = Math.max(0.4, Math.min(2.5, fit / state.model.w));
   const dim = renderPageTo(state.model.page, $("page"), state.model.w, state.model.h, state.scale);
   const ov = $("overlay");
   ov.width = dim.w; ov.height = dim.h;
