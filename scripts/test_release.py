@@ -107,8 +107,10 @@ check("PDF -> Word runs in a child process, never inside the server",
 
 print("\n=== dependencies ===")
 prod = read("requirements.txt").decode().lower()
+# httpx and its dependencies were test-only until the service started taking
+# payments; paypal.py calls PayPal with them, so they belong in production now.
 check("test-only packages are not production dependencies",
-      not re.search(r"^(httpx|httpcore|certifi|playwright)", prod, re.M))
+      not re.search(r"^(playwright|pytest)", prod, re.M))
 check("every production dependency is pinned exactly",
       all("==" in line for line in prod.splitlines() if line.strip() and not line.startswith("#")))
 
