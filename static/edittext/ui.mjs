@@ -397,10 +397,20 @@ function renderActions() {
 
 // --------------------------------------------------------------------- wire ---
 $("file").addEventListener("change", (e) => loadFile(e.target.files[0]));
+// Dragging is not the only way people open a file, and on a phone it is not a
+// way at all: the drop area is also a button, and reachable from the keyboard.
 const dz = $("dropzone");
-dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("over"); });
-dz.addEventListener("dragleave", () => dz.classList.remove("over"));
-dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("over"); loadFile(e.dataTransfer.files[0]); });
+dz.addEventListener("click", () => $("file").click());
+dz.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); }
+});
+for (const ev of ["dragenter", "dragover"]) {
+  dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("drag"); });
+}
+for (const ev of ["dragleave", "drop"]) {
+  dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag"); });
+}
+dz.addEventListener("drop", (e) => loadFile(e.dataTransfer.files[0]));
 $("overlay").addEventListener("click", pick);
 $("preview").addEventListener("click", preview);
 $("keep").addEventListener("click", keepEdit);

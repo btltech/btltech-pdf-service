@@ -92,6 +92,27 @@ check("pdf-lib is loaded for the integrity check", await page.evaluate(() => typ
 check("the WASM is served from this site", (await page.evaluate(async () => (await fetch("/static/vendor/pdfium/pdfium.wasm")).status)) === 200);
 
 console.log("\n=== opening a document ===");
+// Dragging is not available on a phone and not available from a keyboard, so
+// there has to be another way in. A global rule hides file inputs, which once
+// left this page with drag-and-drop as the only option.
+check("there is a visible way to choose a file",
+  await page.evaluate(() => {
+    const dz = document.getElementById("dropzone");
+    return !!dz && getComputedStyle(dz).display !== "none" && /browse/i.test(dz.textContent);
+  }));
+check("the drop area is reachable from the keyboard",
+  await page.evaluate(() => {
+    const dz = document.getElementById("dropzone");
+    return dz.getAttribute("role") === "button" && dz.tabIndex >= 0;
+  }));
+const opensPicker = await page.evaluate(() => new Promise((done) => {
+  const input = document.getElementById("file");
+  input.addEventListener("click", () => done(true), { once: true });
+  document.getElementById("dropzone").click();
+  setTimeout(() => done(false), 1000);
+}));
+check("clicking the drop area opens the file picker", opensPicker);
+
 await page.setInputFiles("#file", SOURCE);
 await page.waitForFunction(() => window.__edittext && window.__edittext.runs.length > 0, null, { timeout: 30000 });
 check("the file name and page count are shown", (await page.textContent("#filename")).includes("2 page"));

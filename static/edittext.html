@@ -13,10 +13,8 @@
   @media (max-width: 980px) { main.edittext { grid-template-columns:1fr; } }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
   .panel h3 { font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted-2); margin-bottom:10px; }
-  #dropzone { border:1px dashed var(--line-strong); border-radius:var(--radius); padding:26px; text-align:center; color:var(--muted); background:var(--panel-2); }
-  #dropzone.over { border-color:var(--accent); background:#16233c; }
-  #dropzone.small { padding:12px; font-size:12px; }
-  #dropzone input { margin-top:10px; color:var(--muted); font-size:12px; }
+  #dropzone.small { padding:14px 20px; font-size:13px; }
+  #dropzone.small p:last-child { margin-top:4px; }
   .stagebar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-bottom:12px; }
   .stagebar .fname { flex:1; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
   #pagewrap, #previewwrap { position:relative; line-height:0; background:#fff; border-radius:3px; box-shadow:0 6px 22px rgba(0,0,0,.45); max-width:100%; overflow:auto; }
@@ -62,10 +60,11 @@
 
 <main class="edittext">
   <section class="panel">
-    <div id="dropzone" hidden>
-      <strong>Drop a PDF here</strong><br />or choose one:
-      <input type="file" id="file" accept="application/pdf,.pdf" />
+    <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-controls="file" hidden>
+      <p><strong>Drag &amp; drop a PDF here</strong></p>
+      <p style="margin-top:8px">or <span class="browse">browse your device</span></p>
     </div>
+    <input type="file" id="file" accept="application/pdf,.pdf" />
 
     <div id="stage" hidden>
       <div class="stagebar">
