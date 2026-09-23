@@ -143,3 +143,45 @@ Then check, on the live URL:
 - `/source` shows the repository link and `/source.zip` downloads
 - `/edit-text` loads the engine and edits a document (the file never leaves the browser)
 - the footer's "Source code" link is present on every page
+
+## Switching on paid conversions
+
+Everything is built, deployed and tested; it is **off**, because a customer who
+hit the limit today could not pay. Turning it on is four settings and a test.
+
+1. **Create a PayPal app** at developer.paypal.com. Take the sandbox Client ID
+   and Secret first - live credentials come later, after step 4.
+2. **Put them in Railway** (you, not me - I do not handle keys):
+   `PAYPAL_CLIENT_ID`, `PAYPAL_SECRET`, `PAYPAL_ENV=sandbox`.
+3. **Set the packs and the allowance.** Already set: `PDF_FREE_PER_DAY=1` and
+   `PDF_PACKS=10:2.00,25:4.00`. Change the packs freely - the format is
+   `credits:price`, comma-separated, and nothing about them is in the code.
+   `PDF_BILLING_SALT` is already set and should not be changed casually: doing so
+   resets every free counter, which is harmless but means one extra free
+   conversion each for everyone.
+4. **Switch it on**: `PDF_BILLING=on`.
+
+Then test with a PayPal sandbox account:
+
+- `/convert` shows the allowance and the packs
+- convert once: it works, and the count goes down
+- convert again: refused with a message, not an error
+- buy a pack: PayPal's window opens, approval returns, credits appear
+- convert again: it works and spends a credit
+- buy the same pack twice in quick succession: the second click adds nothing extra
+
+When that all behaves, swap in the live credentials and set `PAYPAL_ENV=live`.
+
+**Before taking real money**, settle the terms of sale: what a pack is, that
+credits do not expire, that they live in the browser and are lost if site data
+is cleared, and how refunds are handled. `PRIVACY.md` lists it alongside the
+other open questions. The privacy notice already describes what a purchase
+records; the terms of sale are a separate page that does not exist yet.
+
+### What is and is not enforceable
+
+Paid credits are counted on the server against a token this service issued, so
+they cannot be forged or replayed. The **free allowance is a speed bump, not a
+lock**: it is counted against the caller's address, and anyone reaching the
+origin directly can send whatever address they like. That is a deliberate trade -
+it costs an honest visitor nothing, and tightening it would mean accounts.
