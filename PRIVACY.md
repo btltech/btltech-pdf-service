@@ -63,6 +63,16 @@ the service.
   Analytics and Bot Fight Mode for it, removes all three and lets this notice go
   back to the shorter claim. That is a decision for the owner.*
 - **No accounts**, so no names, email addresses or passwords are held.
+- **Free-conversion metering** stores a salted SHA-256 of the caller's IP address
+  (truncated), the date, and a count; rows older than two days are deleted on
+  start-up. The raw address is never written. The salt is `PDF_BILLING_SALT` and
+  must be set, or the hash could be reversed by trying every address.
+- **Purchases.** PayPal takes the payment on its own pages; no card details reach
+  this service. Stored here: the PayPal order id, amount, currency, and the
+  credits granted (`paid_order`), plus the credit balance against a random bearer
+  token (`credit_pack`). No name or email is stored. *Whether the order id and
+  amount constitute personal data in the hands of BTLTECH, and what retention
+  applies to them, is a question for the reviewer.*
 - **Host access logs.** Like any web server, the host records a line per request:
   IP address, time, the URL requested, and the browser's user-agent string. These
   are the hosting platform's operational logs, not something the application
@@ -88,6 +98,10 @@ the ICO registration position are business questions to settle before publicatio
 4. Whether **"we delete it immediately"** should be qualified in any way for
    uploads interrupted mid-transfer.
 5. The **contact address** for privacy enquiries and the ICO position.
+6. **Terms of sale** for the conversion packs: what is bought, that credits do not
+   expire, that they live in the browser and are lost if site data is cleared, and
+   how a refund is handled. UK consumer cancellation rights for digital services
+   need considering before payments are switched on.
 
 ## How to re-check these claims
 

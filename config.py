@@ -69,3 +69,33 @@ REDIRECT_HOSTS = [
     for h in os.environ.get("PDF_REDIRECT_HOSTS", "").split(",")
     if h.strip()
 ]
+
+# ----------------------------------------------------------------- billing ---
+# Charging applies to the server-side conversion only. The browser editors run
+# on the customer's own machine, so a payment check inside them could be lifted
+# by anyone who looked; gating them would be a sign, not a lock.
+#
+# Everything here is off by default. The service only starts asking for money
+# when it is switched on AND has somewhere to record what it sold.
+BILLING_ON = os.environ.get("PDF_BILLING", "").strip().lower() in {"1", "on", "true", "yes"}
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+
+# Conversions allowed per day before payment is asked for, counted against a
+# salted hash of the caller's address.
+FREE_PER_DAY = max(0, int(os.environ.get("PDF_FREE_PER_DAY", "1")))
+
+# What can be bought: "credits:price" pairs, e.g. "10:2.00,25:4.00". Left empty
+# on purpose - the right size and price come from real usage, not from a guess
+# baked into the source.
+PACKS_RAW = os.environ.get("PDF_PACKS", "").strip()
+CURRENCY = os.environ.get("PDF_CURRENCY", "GBP").strip().upper()
+CURRENCY_SYMBOL = os.environ.get("PDF_CURRENCY_SYMBOL", "£").strip()
+
+# Secret that makes the daily caller hash unguessable. Without it the hash of an
+# address could be worked out by anyone who tried every address, which would
+# defeat the point of hashing at all.
+BILLING_SALT = os.environ.get("PDF_BILLING_SALT", "").strip()
+
+PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "").strip()
+PAYPAL_SECRET = os.environ.get("PAYPAL_SECRET", "").strip()
+PAYPAL_ENV = os.environ.get("PAYPAL_ENV", "sandbox").strip().lower()

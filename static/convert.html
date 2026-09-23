@@ -38,6 +38,7 @@
     <span class="small muted">leave blank to convert the whole document</span>
   </div>
 
+  <div id="billing" class="billing" hidden></div>
   <ul id="queue" class="queue"></ul>
 </main>
 
@@ -148,6 +149,7 @@
           if (items.length === 1) download(item);   // single file: auto-download
           resolve();
           render();
+          refreshAllowance();
         } else {
           var blob = xhr.response;
           if (blob && blob.text) {
@@ -155,6 +157,7 @@
               var detail = "";
               try { detail = JSON.parse(text).detail || ""; } catch (err) {}
               fail(detail || "Conversion failed (HTTP " + xhr.status + ")");
+              if (xhr.status === 402) refreshAllowance();
             }, function () { fail("Conversion failed (HTTP " + xhr.status + ")"); });
           } else {
             fail("Conversion failed (HTTP " + xhr.status + ")");
@@ -164,11 +167,134 @@
 
       xhr.onerror = function () { fail("Network error - is the server running?"); };
 
+      var token = creditToken();
+      if (token) xhr.setRequestHeader("X-PDF-Token", token);
       var form = new FormData();
       form.append("file", item.file);
       xhr.send(form);
     });
   }
+
+  // ---------------------------------------------------------- paid conversions ---
+  // The credit token is a bearer token: whoever holds it holds the conversions.
+  // It is kept in this browser and sent with a conversion; there is no account,
+  // so there is nothing to log in to and nothing to lose but the token itself.
+  var TOKEN_KEY = "btltech-pdf-credits";
+  function creditToken() {
+    try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; }
+  }
+  function storeToken(t) {
+    try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {}
+  }
+
+  var billingBox = document.getElementById("billing");
+  var state = null;
+
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function refreshAllowance() {
+    var headers = {};
+    var t = creditToken();
+    if (t) headers["X-PDF-Token"] = t;
+    return fetch("/api/allowance", { headers: headers })
+      .then(function (r) { return r.json(); })
+      .then(function (data) { state = data; renderBilling(); })
+      .catch(function () { billingBox.hidden = true; });
+  }
+
+  function renderBilling(message) {
+    if (!state || !state.billing) { billingBox.hidden = true; return; }
+    billingBox.hidden = false;
+    billingBox.className = "billing" + (state.may_convert ? "" : " need");
+    var lines = [];
+    if (message) lines.push("<strong>" + esc(message) + "</strong>");
+    if (state.credits > 0) {
+      lines.push("You have <strong>" + state.credits + "</strong> conversion" +
+        (state.credits === 1 ? "" : "s") + " left, and " + state.free_left + " free today.");
+    } else if (state.free_left > 0) {
+      lines.push(state.free_left + " free conversion" + (state.free_left === 1 ? "" : "s") +
+        " left today.");
+    } else {
+      lines.push("Today's free conversion is used. Another is free tomorrow, or buy a pack " +
+        "of conversions that never expire.");
+    }
+    var packs = (state.packs || []).map(function (p) {
+      return '<button type="button" data-credits="' + p.credits + '">' + esc(p.label) + "</button>";
+    }).join("");
+    if (packs) {
+      lines.push('<div class="packs">' + packs + "</div>");
+      lines.push('<div class="muted">Paid conversions are kept in this browser, not in an ' +
+        "account. Clearing this site's data loses them.</div>");
+    }
+    billingBox.innerHTML = lines.join("<br>");
+    Array.prototype.forEach.call(billingBox.querySelectorAll("button[data-credits]"), function (b) {
+      b.addEventListener("click", function () { buy(parseInt(b.dataset.credits, 10), b); });
+    });
+  }
+
+  function buy(credits, button) {
+    var original = button.textContent;
+    button.disabled = true;
+    button.textContent = "Opening PayPal\u2026";
+    fetch("/api/pay/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credits: credits }),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) throw new Error(res.d.detail || "Could not start the payment");
+        // PayPal's own pages take the payment; no card details come near this
+        // site. The address is the one PayPal gave us, so the sandbox and the
+        // live site both send the customer to the right place.
+        var win = window.open(res.d.approve_url, "paypal", "width=500,height=700");
+        if (!win) throw new Error("Allow pop-ups to pay, or try again");
+        var poll = setInterval(function () {
+          if (!win.closed) return;
+          clearInterval(poll);
+          button.textContent = "Checking the payment\u2026";
+          capture(res.d.order_id, button, original);
+        }, 800);
+      })
+      .catch(function (e) {
+        button.disabled = false;
+        button.textContent = original;
+        renderBilling(e.message);
+      });
+  }
+
+  function capture(orderId, button, original) {
+    var headers = { "Content-Type": "application/json" };
+    var t = creditToken();
+    if (t) headers["X-PDF-Token"] = t;
+    fetch("/api/pay/capture", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ order_id: orderId }),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        button.disabled = false;
+        button.textContent = original;
+        if (!res.ok) { renderBilling(res.d.detail || "That payment did not complete"); return; }
+        storeToken(res.d.token);
+        refreshAllowance().then(function () {
+          renderBilling("Thank you - " + res.d.added + " conversions added.");
+        });
+      })
+      .catch(function () {
+        button.disabled = false;
+        button.textContent = original;
+        renderBilling("The payment could not be confirmed. Nothing has been added; " +
+          "if you were charged, contact us and it will be put right.");
+      });
+  }
+
+  refreshAllowance();
 
   function download(item) {
     if (!item.url) return;

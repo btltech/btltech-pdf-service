@@ -141,11 +141,13 @@ for dirpath, dirs, files in os.walk(ROOT):
 check("no file refers to another BTLTECH LTD product, a local path, or a deployment hostname",
       not offenders, ", ".join(offenders))
 imports = set()
-for rel in ("app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py"):
+for rel in ("app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py",
+            "billing.py", "paypal.py"):
     imports |= set(re.findall(r"^\s*(?:from|import)\s+([\w.]+)", read(rel).decode(), re.M))
 local = {name for name in imports if os.path.exists(os.path.join(ROOT, name.split(".")[0] + ".py"))}
 check("the service imports only its own modules and published packages",
-      local <= {"config", "tools", "source_offer", "app", "converter_worker"}, ", ".join(sorted(local)))
+      local <= {"config", "tools", "source_offer", "app", "converter_worker", "billing", "paypal"},
+      ", ".join(sorted(local)))
 
 print("\n=== summary ===")
 print(f"  passed: {len(PASSED)}")

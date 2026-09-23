@@ -39,12 +39,14 @@ try:
 except ImportError:  # pragma: no cover - legacy PyMuPDF
     import fitz
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi import Body, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
+import billing
+import paypal
 import source_offer
 import tools
 from config import (
@@ -240,6 +242,101 @@ async def tools_page() -> HTMLResponse:
     return _page("tools.html")
 
 
+@app.on_event("startup")
+async def _prepare_billing() -> None:
+    """Create the billing tables when billing is switched on. Never fatal.
+
+    A database that is briefly unreachable must not stop the service starting:
+    the tools that do not charge should keep working, and `enabled()` already
+    falls back to giving the service away rather than taking money it cannot
+    record.
+    """
+    try:
+        billing.setup()
+    except Exception as exc:                                   # noqa: BLE001
+        log.warning("billing storage is not ready: %s", exc)
+
+
+def _return_credit(reservation) -> None:
+    """Put back a reserved conversion. A failure here must not hide the real error."""
+    try:
+        billing.refund(reservation)
+    except Exception as exc:                                   # noqa: BLE001
+        log.warning("could not return a reserved conversion: %s", exc)
+
+
+def _packs_payload() -> list:
+    return [{"credits": p.credits, "price": p.price, "label": p.label} for p in billing.packs()]
+
+
+@app.get("/api/allowance")
+async def allowance(request: Request, x_pdf_token: Optional[str] = Header(None)) -> dict:
+    """What this caller may convert right now, and what they could buy."""
+    if not billing.enabled():
+        return {"billing": False, "may_convert": True}
+    try:
+        state = billing.allowance(billing.caller_ip(request), x_pdf_token)
+    except Exception as exc:                                   # noqa: BLE001
+        log.warning("allowance lookup failed: %s", exc)
+        return {"billing": False, "may_convert": True}
+    return {
+        "billing": True,
+        "may_convert": state.may_convert,
+        "free_left": state.free_left,
+        "free_per_day": state.free_per_day,
+        "credits": state.credits,
+        "packs": _packs_payload(),
+        "currency": CURRENCY,
+    }
+
+
+@app.post("/api/pay/create")
+async def pay_create(payload: dict = Body(...)) -> dict:
+    """Start a PayPal payment for one of the configured packs."""
+    if not billing.enabled() or not paypal.configured():
+        raise HTTPException(503, "Payments are not available on this server")
+    wanted = payload.get("credits")
+    pack = next((p for p in billing.packs() if p.credits == wanted), None)
+    if pack is None:
+        # The price is never taken from the browser: only a pack this server
+        # offers can be bought, at the price this server set for it.
+        raise HTTPException(400, "That is not one of the packs on offer")
+    try:
+        order_id, approve_url = await paypal.create_order(
+            pack.price, CURRENCY, f"{pack.credits} PDF conversions"
+        )
+    except paypal.PayPalError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    return {"order_id": order_id, "approve_url": approve_url,
+            "credits": pack.credits, "price": pack.price, "currency": CURRENCY}
+
+
+@app.post("/api/pay/capture")
+async def pay_capture(payload: dict = Body(...), x_pdf_token: Optional[str] = Header(None)) -> dict:
+    """Finish a payment and add the credits, on PayPal's word rather than the browser's."""
+    if not billing.enabled() or not paypal.configured():
+        raise HTTPException(503, "Payments are not available on this server")
+    order_id = str(payload.get("order_id") or "").strip()
+    if not order_id:
+        raise HTTPException(400, "No payment was named")
+    try:
+        result = await paypal.capture_order(order_id)
+    except paypal.PayPalError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    if not result.completed:
+        raise HTTPException(402, "PayPal has not completed that payment")
+    # Match what was actually paid to a pack. A payment for an amount this
+    # server does not sell buys nothing, whatever the browser asked for.
+    pack = next((p for p in billing.packs()
+                 if p.price == result.amount and result.currency == CURRENCY), None)
+    if pack is None:
+        log.warning("a payment of %s %s matched no pack on offer", result.amount, result.currency)
+        raise HTTPException(409, "That payment does not match anything on sale here")
+    token = billing.grant(order_id, x_pdf_token, pack.credits, result.amount, result.currency)
+    state = billing.allowance("", token)
+    return {"token": token, "credits": state.credits, "added": pack.credits}
+
+
 @app.get("/api/health")
 async def health() -> dict:
     """Simple readiness probe."""
@@ -248,7 +345,9 @@ async def health() -> dict:
 
 @app.post("/api/convert")
 async def convert(
+    request: Request,
     file: UploadFile = File(...),
+    x_pdf_token: Optional[str] = Header(None),
     pages: Optional[str] = Query(
         None, description="Optional page range, e.g. '1-5' or '2,4-6'"
     ),
@@ -267,6 +366,26 @@ async def convert(
         raise HTTPException(400, "This file does not look like a valid PDF")
 
     start, end = parse_pages(pages)
+
+    # Take the conversion from the free allowance, or from a paid credit, before
+    # any work starts: two requests arriving together must not both spend the
+    # last credit. If the conversion then fails, the credit goes back - nobody
+    # pays for a document they did not get.
+    reservation = None
+    if billing.enabled():
+        try:
+            reservation = billing.reserve(billing.caller_ip(request), x_pdf_token)
+        except billing.NeedsPayment:
+            raise HTTPException(
+                402,
+                f"You have used today's free conversion. Another is free tomorrow, "
+                f"or you can buy a pack of conversions that do not expire.",
+            ) from None
+        except Exception as exc:                               # noqa: BLE001
+            # The meter is broken, not the converter. Letting the work through is
+            # the right way to fail: the alternative is refusing a customer
+            # because of a fault that is not theirs.
+            log.warning("could not meter this conversion, allowing it: %s", exc)
 
     tmp_dir = tempfile.mkdtemp(prefix="pdf2word_")
     in_path = os.path.join(tmp_dir, "input.pdf")
@@ -334,9 +453,11 @@ async def convert(
 
     except HTTPException:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+        _return_credit(reservation)
         raise
     except Exception as exc:  # noqa: BLE001 - surface any failure to the UI
         shutil.rmtree(tmp_dir, ignore_errors=True)
+        _return_credit(reservation)
         log.exception("Conversion failed for a %s upload", (os.path.splitext(filename)[1] or ".pdf").lower())
         raise HTTPException(500, f"Conversion failed: {exc}") from exc
 
