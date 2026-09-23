@@ -98,10 +98,13 @@ the ICO registration position are business questions to settle before publicatio
 4. Whether **"we delete it immediately"** should be qualified in any way for
    uploads interrupted mid-transfer.
 5. The **contact address** for privacy enquiries and the ICO position.
-6. **Terms of sale** for the conversion packs: what is bought, that credits do not
-   expire, that they live in the browser and are lost if site data is cleared, and
-   how a refund is handled. UK consumer cancellation rights for digital services
-   need considering before payments are switched on.
+6. **Terms of sale** — drafted since this notice was written, and published at
+   `/terms`. The facts and the remaining legal questions are in `TERMS.md`; two of
+   them touch this notice directly. Reg. 16 of the Consumer Contracts Regulations
+   2013 may require a confirmation on a durable medium, which would mean collecting
+   an email address this service deliberately does not collect and this notice says
+   is not held. If that is the conclusion, **this notice must change at the same
+   time.**
 
 ## How to re-check these claims
 

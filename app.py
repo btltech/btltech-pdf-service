@@ -268,6 +268,12 @@ async def privacy_page() -> HTMLResponse:
     return _page("privacy.html")
 
 
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_page() -> HTMLResponse:
+    """What the two paid things are, and what happens after you buy one."""
+    return _page("terms.html")
+
+
 @app.get("/tools", response_class=HTMLResponse)
 async def tools_page() -> HTMLResponse:
     """Server-side page tools UI."""
@@ -456,7 +462,8 @@ async def sitemap() -> Response:
     """The pages worth indexing, which is all of them except the API."""
     host = CANONICAL_HOST or "pdf.btltech.co.uk"
     pages = [("/", "1.0"), ("/convert", "0.9"), ("/edit-text", "0.9"),
-             ("/edit", "0.8"), ("/tools", "0.8"), ("/privacy", "0.3"), ("/source", "0.3")]
+             ("/edit", "0.8"), ("/tools", "0.8"), ("/privacy", "0.3"),
+             ("/terms", "0.3"), ("/source", "0.3")]
     urls = "".join(
         f"<url><loc>https://{host}{path}</loc><priority>{priority}</priority></url>"
         for path, priority in pages

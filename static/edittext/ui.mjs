@@ -399,7 +399,15 @@ function renderActions() {
     `Saving the clean copy of this document costs ${esc(state.currency === "GBP" ? "£" : "")}${esc(state.price)}, ` +
     `once — you can keep editing it as much as you like first.</p>` +
     `<div class="btnrow"><button id="buyexport">Save clean copy &mdash; ` +
-    `${esc(state.currency === "GBP" ? "£" : "")}${esc(state.price)}</button></div>`;
+    `${esc(state.currency === "GBP" ? "£" : "")}${esc(state.price)}</button></div>` +
+    // Said here, not only on the terms page. Somebody about to pay should not
+    // have to go looking for the two facts most likely to matter to them
+    // afterwards: that the file arrives at once, which is what gives up the
+    // 14-day right to change their mind, and that the unlock lives in this
+    // browser rather than in an account.
+    `<p class="hint">Paying supplies it straight away, so the 14-day right to cancel ` +
+    `does not apply once it is saved. The unlock is kept by this browser, and is lost ` +
+    `if you clear this site's data. <a href="/terms" target="_blank" rel="noopener">Terms of sale</a>.</p>`;
   $("buyexport").addEventListener("click", (e) => unlockAndSave(e.target));
 }
 
