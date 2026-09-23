@@ -229,6 +229,17 @@ goes to `test-output/` (ignored by git).
 `scripts/make_sample_pdf.py` writes a demo document with headings, a ruled table and an image to
 `samples/`.
 
+## Deploying
+
+`DEPLOYING.md` covers Railway: the settings to set, what it should cost, the
+checklist to clear before the service is public, and why building an image there is
+running the software rather than distributing it.
+
+Static assets are gzipped (the PDFium build is 4.4 MB and compresses to 2.0 MB, so a
+first visit to the text editor transfers about 2.4 MB rather than 5.3 MB). Downloads
+and API responses are left alone: .docx and PDF files are already compressed, and
+gzipping them would cost CPU to save nothing.
+
 ## Running it in production
 
 Run it from a checkout plus a virtual environment, behind Nginx on a small VPS. **Do not publish a
@@ -282,6 +293,8 @@ for the bundled browser libraries are in `LICENSES/`.
 | `PDF2WORD_PORT` | `8000` | Port to listen on |
 | `PDF2WORD_MAX_MB` | `50` | Max upload size in MB |
 | `PDF2WORD_CONVERT_WORKERS` | `2` | PDF → Word conversions that run at once (each ~150–250 MB) |
+| `PDF_SUPPORT_URL` | *(unset)* | An optional "support this tool" link in the footer. Nothing is gated behind it, and it is a plain link: a payment provider's script would contradict what these pages promise about files staying in the browser |
+| `PDF_SUPPORT_LABEL` | `Support this tool` | The wording of that link |
 | `PDF2WORD_CONVERT_TIMEOUT_S` | `300` | Stop a conversion that runs longer than this |
 | `PDF_SOURCE_REPO_URL` | *(empty)* | Public repository URL shown on `/source` |
 | `PDF_SOURCE_VERSION` | git commit, if available | Version shown on `/source` and in `X-Source-Version` |

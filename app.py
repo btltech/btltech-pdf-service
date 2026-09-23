@@ -21,6 +21,7 @@ Configuration (environment variables):
 
 import asyncio
 import logging
+import html
 import os
 import sys
 import re
@@ -40,12 +41,21 @@ except ImportError:  # pragma: no cover - legacy PyMuPDF
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
 import source_offer
 import tools
-from config import CONVERT_TIMEOUT_S, CONVERT_WORKERS, HOST, MAX_UPLOAD_MB, PORT
+from config import (
+    CONVERT_TIMEOUT_S,
+    CONVERT_WORKERS,
+    HOST,
+    MAX_UPLOAD_MB,
+    PORT,
+    SUPPORT_LABEL,
+    SUPPORT_URL,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -101,6 +111,24 @@ app.include_router(tools.router)
 # AGPL-3.0 s.13 source offer: /source and /source.zip.
 app.include_router(source_offer.router)
 
+class StaticGZip(GZipMiddleware):
+    """Compress the static assets, and only those.
+
+    The text editor's PDFium build is 4.4 MB and gzips to 2.0 MB, so a first
+    visit halves; the fonts and scripts gain similarly. Converted .docx files and
+    PDFs are already compressed, and running them through gzip would spend CPU on
+    every download to save nothing, so anything outside /static goes straight
+    through untouched.
+    """
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path", "").startswith("/static/"):
+            return await super().__call__(scope, receive, send)
+        return await self.app(scope, receive, send)
+
+
+app.add_middleware(StaticGZip, minimum_size=1024)
+
 # Stylesheet and other static assets.
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -131,12 +159,29 @@ def parse_pages(spec: Optional[str]) -> Tuple[Optional[int], Optional[int]]:
     return min(wanted) - 1, max(wanted)
 
 
+def _support_link() -> str:
+    """The optional 'support this tool' link, or nothing at all.
+
+    Deliberately a plain anchor: a payment provider's script on these pages would
+    contradict what they promise about files never leaving the browser. Nothing is
+    gated behind it - the tools are free either way.
+    """
+    if not SUPPORT_URL:
+        return ""
+    url = html.escape(SUPPORT_URL, quote=True)
+    label = html.escape(SUPPORT_LABEL or "Support this tool")
+    return (
+        f'<span class="support-line">&middot; <a href="{url}" rel="noopener noreferrer nofollow"'
+        f' target="_blank">{label}</a></span>'
+    )
+
+
 def _page(name: str) -> HTMLResponse:
     """Serve one of the static HTML pages."""
     path = STATIC_DIR / name
     if not path.is_file():
         raise HTTPException(404, f"Page '{name}' is not installed")
-    return HTMLResponse(path.read_text(encoding="utf-8"))
+    return HTMLResponse(path.read_text(encoding="utf-8").replace("<!--SUPPORT-->", _support_link()))
 
 
 @app.get("/", response_class=HTMLResponse)

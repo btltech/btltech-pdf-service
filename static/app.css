@@ -238,3 +238,8 @@ a.btn {
   padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 14px;
 }
 a.btn:hover { background: #3d7bfd; }
+
+/* Optional "support this tool" link (PDF_SUPPORT_URL). Absent by default, and
+   nothing is ever gated behind it. */
+.support-line a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.support-line a:hover { color: var(--ink); }

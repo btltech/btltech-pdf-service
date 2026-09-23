@@ -9,7 +9,9 @@ MAX_UPLOAD_MB = int(os.environ.get("PDF2WORD_MAX_MB", "50"))
 
 # Where the service listens.
 HOST = os.environ.get("PDF2WORD_HOST", "0.0.0.0")
-PORT = int(os.environ.get("PDF2WORD_PORT", "8000"))
+# PORT (no prefix) is what Railway, Heroku and most other hosts set, so honour it
+# when our own variable is not given.
+PORT = int(os.environ.get("PDF2WORD_PORT") or os.environ.get("PORT") or "8000")
 
 # How many PDF -> Word conversions run at once. Each one runs in its own child
 # process (converter_worker.py) and needs roughly 150-250 MB while it works,
@@ -26,3 +28,15 @@ CONVERT_TIMEOUT_S = max(10, int(os.environ.get("PDF2WORD_CONVERT_TIMEOUT_S", "30
 # repository and the exact revision, and are optional.
 SOURCE_REPO_URL = os.environ.get("PDF_SOURCE_REPO_URL", "").strip()
 SOURCE_VERSION = os.environ.get("PDF_SOURCE_VERSION", "").strip()
+
+# An optional link where people can support the service (a PayPal.me address, a
+# PayPal donate link, or anything else). When it is empty - the default - no
+# support link is rendered anywhere. Nothing is ever gated behind it: the tools
+# are free, the source is published, and a paywall on code that runs in the
+# customer's own browser would be theatre rather than a lock.
+#
+# It is a plain link on purpose. Embedding a payment provider's JavaScript would
+# put third-party code on pages that promise the document never leaves the tab,
+# and that promise is worth more than the convenience.
+SUPPORT_URL = os.environ.get("PDF_SUPPORT_URL", "").strip()
+SUPPORT_LABEL = os.environ.get("PDF_SUPPORT_LABEL", "Support this tool").strip()
