@@ -269,7 +269,25 @@ def grant(order_id: str, token: Optional[str], credits: int, amount: str, curren
 
 
 def caller_ip(request) -> str:
-    """The caller's address, trusting the proxy header the host actually sets."""
+    """Who to count this against.
+
+    Behind a CDN the socket address is the CDN's, and `X-Forwarded-For` is a
+    chain that each hop may add to - taking the first entry of it gave a
+    different answer from one request to the next, so the free allowance flipped
+    between used and unused. `CF-Connecting-IP` is set by Cloudflare itself to
+    the real caller and is overwritten on every request, so it is both stable
+    and not something a visitor can set.
+
+    A caller who reaches the origin directly can still put whatever they like in
+    these headers, so the free allowance is a speed bump rather than a lock.
+    That is the right trade: it costs an honest visitor nothing, and the part
+    that must actually hold - paid credits - is counted on the server against a
+    token this service issued, which no header can forge.
+    """
+    for header in ("cf-connecting-ip", "true-client-ip"):
+        value = request.headers.get(header, "").strip()
+        if value:
+            return value
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
         return forwarded.split(",")[0].strip()

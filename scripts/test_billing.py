@@ -289,6 +289,23 @@ check("capturing the same order twice adds nothing more",
 r = client.post("/api/pay/capture", json={})
 check("a capture with no order is refused", r.status_code == 400, str(r.status_code))
 
+print("\n=== who gets counted ===")
+
+
+class FakeRequest:
+    def __init__(self, headers, client_host="10.0.0.1"):
+        self.headers = headers
+        self.client = type("C", (), {"host": client_host})()
+
+
+check("Cloudflare's own header wins, because a visitor cannot set it",
+      billing.caller_ip(FakeRequest({"cf-connecting-ip": "203.0.113.9",
+                                     "x-forwarded-for": "198.51.100.1, 172.16.0.1"})) == "203.0.113.9")
+check("without it, the first forwarded address is used",
+      billing.caller_ip(FakeRequest({"x-forwarded-for": "198.51.100.1, 172.16.0.1"})) == "198.51.100.1")
+check("with no proxy headers at all, the socket address is used",
+      billing.caller_ip(FakeRequest({})) == "10.0.0.1")
+
 print("\n=== summary ===")
 print(f"  passed: {len(PASSED)}")
 print(f"  failed: {len(FAILED)}")
