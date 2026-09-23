@@ -138,6 +138,11 @@ const shape = await page.evaluate(() => {
 check("the page keeps its shape on screen",
   Math.abs(shape.pxRatio - shape.cssRatio) < 0.02,
   `drawn ${shape.pxRatio.toFixed(3)} vs shown ${shape.cssRatio.toFixed(3)}`);
+// A phone browser zooms the whole page out when the layout overflows, which
+// shrinks the text the customer is trying to tap. The page must fit its column.
+check("the layout does not overflow the screen",
+  await page.evaluate(() => document.body.scrollWidth <= window.innerWidth + 1),
+  await page.evaluate(() => `body ${document.body.scrollWidth} vs viewport ${window.innerWidth}`));
 check("the text is big enough to be worth tapping",
   await page.evaluate(() => {
     const c = document.getElementById("page");

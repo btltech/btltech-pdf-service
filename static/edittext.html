@@ -17,7 +17,13 @@
 <link rel="stylesheet" href="/static/app.css" />
 <style>
   main.edittext { width:100%; max-width:1280px; display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; align-items:start; }
-  @media (max-width: 980px) { main.edittext { grid-template-columns:1fr; } }
+  /* minmax(0,1fr), not 1fr: a grid column's minimum is its content by default,
+     so the column grew to fit the page canvas, the layout overflowed the phone,
+     and the browser zoomed the whole page out to compensate - shrinking the very
+     text the customer is trying to tap. The column now holds its width and the
+     page scrolls inside its own frame. */
+  @media (max-width: 980px) { main.edittext { grid-template-columns:minmax(0,1fr); } }
+  .panel { min-width: 0; }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:16px; }
   .panel h3 { font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted-2); margin-bottom:10px; }
   #dropzone.small { padding:14px 20px; font-size:13px; }
