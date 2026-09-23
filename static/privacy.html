@@ -73,13 +73,22 @@
     <ul>
       <li><a href="/edit">Edit PDF</a> and <a href="/edit-text">Edit existing text</a> open your document in your own browser, hold it in that tab, and save it back to your device.</li>
       <li><strong>No request carries it anywhere.</strong> This is checked automatically rather than simply asserted: an automated test opens and edits a document while watching every network request the page makes, and fails if any of them is anything but a plain request for this site's own files.</li>
-      <li>The PDF engine, the fonts and the scripts those pages need are served from this site, not from anyone else's, so using them does not tell a third party you were here.</li>
+      <li>The PDF engine, the fonts and the scripts those pages need are served from this site, not from anyone else's. The one exception is Cloudflare's own script, described below, which is added by the service that sits in front of this site.</li>
       <li>Closing the tab discards the document. Nothing is kept between visits.</li>
     </ul>
 
     <h2>What this site collects about you</h2>
     <ul>
-      <li><strong>No cookies.</strong> No analytics, no tracking pixels, no advertising, and no third-party scripts of any kind on any page.</li>
+      <li><strong>This service sets no cookies</strong> and loads no analytics, tracking pixels, advertising or third-party scripts of its own on any page.</li>
+      <li><strong>The site is served through Cloudflare, and Cloudflare adds its own.</strong>
+        As part of protecting and measuring the site, Cloudflare injects a script from
+        <code>static.cloudflareinsights.com</code> and sends two requests of its own from your
+        browser: one to its analytics endpoint, and one carrying browser characteristics used
+        for bot detection. They are Cloudflare's, not ours, and they are governed by
+        Cloudflare's terms rather than by this notice. <strong>They happen when the page loads,
+        before you open any document, and they do not carry your file.</strong> If you would
+        rather avoid them entirely, the two editors work the same way from a local copy of the
+        <a href="/source">source</a>.</li>
       <li><strong>No accounts</strong>, so no names, email addresses or passwords are held.</li>
       <li><strong>Requests are logged by the hosting platform.</strong> Like any website, the service runs on hosting that records that a request happened &mdash; including the IP address it came from, the time, and the page requested. That is operational logging by the host, and an IP address counts as personal data.</li>
     </ul>

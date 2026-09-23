@@ -48,9 +48,20 @@ the service.
 
 ## What the site itself collects
 
-- **No cookies.** No analytics, no tracking pixels, no advertising, no third-party
-  scripts of any kind. (Checked: no `cookie`, analytics or beacon code in any page;
-  the only external link in any page is to the GNU licence text.)
+- **This service sets no cookies** and loads no analytics, tracking pixels,
+  advertising or third-party scripts of its own. (Checked: no `cookie`, analytics
+  or beacon code in any page; the only external link in any page is to the GNU
+  licence text.)
+- **Cloudflare's proxy adds its own, and that has to be disclosed.** Measured on
+  `pdf.btltech.co.uk` on 23 Sep 2026: a script from
+  `static.cloudflareinsights.com/beacon.min.js`, a `POST /cdn-cgi/rum` of about
+  839 bytes, and a `POST /cdn-cgi/challenge-platform/...` of about 16.5 KB of
+  browser characteristics. Both POSTs fire on page load, before any document is
+  opened, so they do not carry the file - but they are analytics and
+  fingerprinting on a page whose whole selling point is that nothing leaves the
+  browser. *Turning the orange cloud off for this hostname, or disabling Web
+  Analytics and Bot Fight Mode for it, removes all three and lets this notice go
+  back to the shorter claim. That is a decision for the owner.*
 - **No accounts**, so no names, email addresses or passwords are held.
 - **Host access logs.** Like any web server, the host records a line per request:
   IP address, time, the URL requested, and the browser's user-agent string. These

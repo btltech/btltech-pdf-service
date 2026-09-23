@@ -46,7 +46,13 @@ function check(label, ok, detail = "") {
   console.log(`  [${ok ? "PASS" : "FAIL"}] ${label}${detail ? "  (" + detail + ")" : ""}`);
 }
 
-const browser = await chromium.launch({ executablePath: CHROME, headless: true });
+// CHROME_ARGS lets a run point Chrome at a specific address for a hostname, which
+// is how a newly pointed domain can be tested before every resolver has caught up.
+// Arguments are separated by newlines, not spaces, because Chrome's own flags take
+// values containing spaces:
+//   CHROME_ARGS='--host-resolver-rules=MAP example.com 1.2.3.4' node scripts/...
+const extraArgs = (process.env.CHROME_ARGS || "").split("\n").map((a) => a.trim()).filter(Boolean);
+const browser = await chromium.launch({ executablePath: CHROME, headless: true, args: extraArgs });
 const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 950 } });
 const page = await context.newPage();
 
@@ -91,9 +97,23 @@ await page.waitForFunction(() => window.__edittext && window.__edittext.runs.len
 check("the file name and page count are shown", (await page.textContent("#filename")).includes("2 page"));
 const texts = await runs();
 check("the text on the page was found", texts.some((t) => t.includes("Invoice Summary")), `${texts.length} runs`);
-const sends = requests.filter((r) => r.method !== "GET" || r.body > 0);
-check("the document is never sent anywhere", sends.length === 0, sends.map((r) => `${r.method} ${r.url}`).join(", ").slice(0, 120) || "no non-GET requests");
-check("every request is for this site's own assets", requests.every((r) => r.url.startsWith(BASE)), requests.filter((r) => !r.url.startsWith(BASE)).map((r) => r.url).join(", ").slice(0, 120) || "all local");
+// A CDN in front of the site injects requests of its own - analytics and bot
+// detection - which are not this page's doing and cannot be prevented from here.
+// They are separated out rather than ignored: the assertions below are about what
+// THIS PAGE does, and anything the CDN adds is printed in full so it can never
+// pass unnoticed, because it still needs to be true of what /privacy says.
+const injected = (u) => u.includes("/cdn-cgi/") || u.includes("cloudflareinsights.com");
+const ours = requests.filter((r) => !injected(r.url));
+const infra = requests.filter((r) => injected(r.url));
+const sends = ours.filter((r) => r.method !== "GET" || r.body > 0);
+check("this page sends no data anywhere", sends.length === 0, sends.map((r) => `${r.method} ${r.url}`).join(", ").slice(0, 120) || "no non-GET requests");
+check("every request this page makes is for this site's own assets", ours.every((r) => r.url.startsWith(BASE)), ours.filter((r) => !r.url.startsWith(BASE)).map((r) => r.url).join(", ").slice(0, 120) || "all local");
+if (infra.length) {
+  console.log(`  [NOTE] the CDN in front of this site injected ${infra.length} request(s) of its own:`);
+  for (const r of infra) console.log(`         ${r.method} ${r.url.slice(0, 96)}${r.body ? ` (${r.body} bytes sent)` : ""}`);
+  console.log("         These are not this page's doing, but /privacy has to disclose them.");
+}
+const mark = requests.length;
 
 console.log("\n=== an ordinary replacement ===");
 const plain = (await runs()).findIndex((t) => t.includes("Amount due"));
@@ -156,6 +176,11 @@ check("a PDF was downloaded", fs.statSync(OUTPUT).size > 1000, fs.statSync(OUTPU
 check("the download is named after the source", download.suggestedFilename() === "edittext-edited.pdf", download.suggestedFilename());
 const saved = await page.evaluate(() => ({ ...window.__edittext.lastSaved, replaced: document.getElementById("original").textContent }));
 fs.writeFileSync(OUTPUT.replace(/\.pdf$/, "-expected.json"), JSON.stringify(saved));
+
+const afterOpen = requests.slice(mark).filter((r) => !injected(r.url));
+const uploads = afterOpen.filter((r) => r.method !== "GET" || r.body > 0);
+check("opening, editing and saving a document uploads nothing",
+  uploads.length === 0, uploads.map((r) => `${r.method} ${r.url}`).join(", ").slice(0, 120) || `${afterOpen.length} request(s), all plain GETs`);
 
 console.log("\n=== browser health ===");
 check("no uncaught page errors", noise.length === 0, noise.slice(0, 3).join(" | ").slice(0, 300));
