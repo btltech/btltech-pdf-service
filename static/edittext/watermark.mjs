@@ -39,11 +39,14 @@ function setMatrix(obj, m) {
 /**
  * Stamp every page of an open document.
  *
- * The mark is drawn at an angle across the middle of the page in a grey that
- * stays legible on white and on a dark table fill alike, and large enough that
- * cropping it off would take the page with it.
+ * The mark repeats diagonally across the whole page rather than sitting once in
+ * the middle. One mark leaves most of the page clean and a preview that is
+ * perfectly usable as a document, which defeats the purpose; a repeating one
+ * makes the file unsuitable for sending to anyone while still leaving every
+ * edit clearly readable underneath, which is what the customer is here to
+ * check.
  */
-export function stamp(doc, text = "PREVIEW — BTLTech") {
+export function stamp(doc, text = "BTLTECH PREVIEW \u2014 UNPAID") {
   const pages = P.FPDF_GetPageCount(doc);
   for (let i = 0; i < pages; i++) {
     const page = P.FPDF_LoadPage(doc, i);
@@ -52,28 +55,35 @@ export function stamp(doc, text = "PREVIEW — BTLTech") {
     const font = P.FPDFText_LoadStandardFont(doc, "Helvetica-Bold");
     if (!font) { P.FPDF_ClosePage(page); continue; }
 
-    // Size it by measuring the text rather than guessing from its length: a
-    // guess put the end of the mark off the edge of the page, where cropping
-    // would remove it and a narrow page would lose half the word.
-    const diagonal = Math.hypot(w, h);
-    const target = diagonal * 0.78;
+    // Measured, not guessed: a guess from the character count put the end of
+    // the mark off the page. Roughly half the page width per instance leaves
+    // room for two across and several down.
     const atOne = E.measure(font, 1, 1, text) || text.length * 0.55;
-    const size = Math.max(12, target / atOne);
-
-    const obj = P.FPDFPageObj_CreateTextObj(doc, font, size);
-    if (!obj) { P.FPDF_ClosePage(page); continue; }
-    P.FPDFText_SetText(obj, utf16(text));
-    P.FPDFPageObj_SetFillColor(obj, 130, 130, 140, 70);      // grey, mostly transparent
-
-    // centred on the page, running corner to corner
-    const angle = Math.atan2(h, w);
-    const cos = Math.cos(angle), sin = Math.sin(angle);
+    const size = Math.max(9, (w * 0.52) / atOne);
     const runWidth = atOne * size;
-    const x = w / 2 - (runWidth / 2) * cos;
-    const y = h / 2 - (runWidth / 2) * sin;
-    setMatrix(obj, [cos, sin, -sin, cos, x, y]);
 
-    P.FPDFPage_InsertObject(page, obj);
+    const angle = Math.PI / 6;                       // 30 degrees, an easy read
+    const cos = Math.cos(angle), sin = Math.sin(angle);
+
+    // A lattice of marks. Each row is shifted sideways against the rise of the
+    // rotated text, so the rows stay evenly spaced down the page instead of
+    // drifting into bands with clean gaps between them.
+    const stepAcross = runWidth * 1.15;
+    const stepDown = size * 3.4;
+    const rows = Math.ceil((h + runWidth * sin) / stepDown) + 2;
+    const cols = Math.ceil((w + runWidth) / stepAcross) + 2;
+    for (let r = -1; r < rows; r++) {
+      for (let c = -1; c < cols; c++) {
+        const obj = P.FPDFPageObj_CreateTextObj(doc, font, size);
+        if (!obj) continue;
+        P.FPDFText_SetText(obj, utf16(text));
+        P.FPDFPageObj_SetFillColor(obj, 120, 124, 136, 52);   // grey, faint
+        const x = -runWidth * 0.6 + c * stepAcross + (r % 2) * stepAcross * 0.5;
+        const y = h - r * stepDown - c * stepAcross * sin;
+        setMatrix(obj, [cos, sin, -sin, cos, x, y]);
+        P.FPDFPage_InsertObject(page, obj);
+      }
+    }
     P.FPDFPage_GenerateContent(page);
     P.FPDF_ClosePage(page);
   }
