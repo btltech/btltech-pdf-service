@@ -25,7 +25,10 @@
   .stagebar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding-bottom:12px; }
   .stagebar .fname { flex:1; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
   #pagewrap, #previewwrap { position:relative; line-height:0; background:#fff; border-radius:3px; box-shadow:0 6px 22px rgba(0,0,0,.45); max-width:100%; overflow:auto; }
-  #pagewrap canvas, #previewwrap canvas { display:block; max-width:100%; }
+  /* No max-width: the canvas carries its own width and height, and letting CSS
+     shrink only the width distorted the page. Too wide for the screen means it
+     scrolls, which is what #pagewrap's overflow is for. */
+  #pagewrap canvas, #previewwrap canvas { display:block; }
   #overlay { position:absolute; left:0; top:0; cursor:pointer; }
   .note { border-radius:10px; padding:11px 13px; font-size:13px; line-height:1.5; margin-bottom:12px; background:#16233c; border:1px solid var(--line-strong); color:var(--ink); }
   .note.bad { background:#3a1d20; border-color:#7d3b3b; }

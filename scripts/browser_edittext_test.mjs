@@ -127,6 +127,24 @@ await page.waitForFunction(() => window.__edittext && window.__edittext.runs.len
 check("the file name and page count are shown", (await page.textContent("#filename")).includes("2 page"));
 const texts = await runs();
 check("the text on the page was found", texts.some((t) => t.includes("Invoice Summary")), `${texts.length} runs`);
+// The page is drawn to a canvas that carries its own width and height. If CSS
+// shrinks one and not the other the document comes out visibly distorted, which
+// is what happened on a phone.
+const shape = await page.evaluate(() => {
+  const c = document.getElementById("page");
+  const r = c.getBoundingClientRect();
+  return { pxRatio: c.width / c.height, cssRatio: r.width / r.height };
+});
+check("the page keeps its shape on screen",
+  Math.abs(shape.pxRatio - shape.cssRatio) < 0.02,
+  `drawn ${shape.pxRatio.toFixed(3)} vs shown ${shape.cssRatio.toFixed(3)}`);
+check("the text is big enough to be worth tapping",
+  await page.evaluate(() => {
+    const c = document.getElementById("page");
+    const shrink = c.getBoundingClientRect().width / c.width;
+    const boxes = window.__edittext.boxes.filter((b) => !b.blank);
+    return boxes.length === 0 || Math.max(...boxes.map((b) => (b.box[3] - b.box[1]) * shrink)) >= 9;
+  }));
 // A CDN in front of the site injects requests of its own - analytics and bot
 // detection - which are not this page's doing and cannot be prevented from here.
 // They are separated out rather than ignored: the assertions below are about what

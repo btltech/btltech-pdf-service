@@ -147,9 +147,18 @@ function closeDocs() {
  */
 function layout() {
   if (!state.model) return;
+  // Only a measurement of nothing is treated as broken. 320 was too generous:
+  // a real phone is narrower than that, and was being shown a 760px-wide page
+  // squashed into a 309px column - the document came out visibly distorted.
   const avail = $("pagewrap").clientWidth || 0;
-  const fit = avail > 320 ? Math.min(avail, 900) : 760;
-  state.scale = Math.max(0.6, Math.min(2, fit / state.model.w));
+  const fit = avail > 80 ? Math.min(avail, 900) : 760;
+  let scale = fit / state.model.w;
+  // Fitting a whole A4 page across a phone makes 12pt text about five pixels
+  // tall, which is neither readable nor tappable. Below this the page is shown
+  // at a usable size and scrolls sideways instead, the way any PDF reader does.
+  const READABLE = 0.95;
+  if (scale < READABLE) scale = READABLE;
+  state.scale = Math.max(0.5, Math.min(2.5, scale));
   const dim = renderPageTo(state.model.page, $("page"), state.model.w, state.model.h, state.scale);
   const ov = $("overlay");
   ov.width = dim.w; ov.height = dim.h;
