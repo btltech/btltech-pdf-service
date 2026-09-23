@@ -100,6 +100,15 @@ check("there is a visible way to choose a file",
     const dz = document.getElementById("dropzone");
     return !!dz && getComputedStyle(dz).display !== "none" && /browse/i.test(dz.textContent);
   }));
+// On a touch screen there is nothing to drag from, so the wording must not lead
+// with dragging.
+check("on a touch screen it does not tell you to drag",
+  await page.evaluate(() => {
+    const shown = [...document.querySelectorAll("#dropzone strong")]
+      .filter((el) => getComputedStyle(el).display !== "none")
+      .map((el) => el.textContent).join(" ");
+    return window.matchMedia("(hover: none)").matches ? !/drag/i.test(shown) : /drag/i.test(shown);
+  }));
 check("the drop area is reachable from the keyboard",
   await page.evaluate(() => {
     const dz = document.getElementById("dropzone");
