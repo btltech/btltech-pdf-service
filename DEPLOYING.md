@@ -47,12 +47,12 @@ source makes that easier, but it is not what would forbid charging.
 
 `PORT` is set by Railway and picked up automatically.
 
-**Access logs are a deliberate choice, so make it.** The start command above leaves
-uvicorn's access log on, which writes a line per request including the caller's IP
-address. That is ordinary practice and useful when something breaks, but an IP is
-personal data and this service otherwise holds nothing. Add `--no-access-log` to
-the start command to turn it off; Railway's own edge logging is separate and is not
-affected either way. Whichever you choose, `PRIVACY.md` has to match it.
+**Access logs.** `railway.json` runs uvicorn with `--no-access-log`. Railway
+records requests at its own edge either way, so the application's copy of that log
+would only duplicate personal data (caller IP addresses) in a second place for a
+service that otherwise holds nothing. Remove the flag if you need per-request
+detail in the application log while debugging, and remember that `/privacy` says
+requests are logged by the hosting platform - that wording has to stay true.
 
 ## Resources and what it should cost
 

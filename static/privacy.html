@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later
+     Copyright (C) 2026 BTLTECH LTD -->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy &mdash; BTL Tech PDF Toolkit</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%94%92</text></svg>" />
+<link rel="stylesheet" href="/static/app.css" />
+<style>
+  main.prose { width:100%; max-width:760px; }
+  main.prose .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:22px 24px; }
+  main.prose h2 { font-size:17px; margin:26px 0 10px; }
+  main.prose h2:first-child { margin-top:0; }
+  main.prose p, main.prose li { font-size:14px; line-height:1.65; color:var(--ink); }
+  main.prose p { margin-bottom:12px; }
+  main.prose ul { margin:0 0 12px 20px; }
+  main.prose li { margin-bottom:7px; }
+  main.prose table { width:100%; border-collapse:collapse; margin:14px 0 18px; font-size:13px; }
+  main.prose th, main.prose td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  main.prose th { color:var(--muted-2); font-size:11px; letter-spacing:1.2px; text-transform:uppercase; font-weight:600; }
+  main.prose td.no { color:var(--ok); font-weight:600; white-space:nowrap; }
+  main.prose td.yes { color:var(--muted); white-space:nowrap; }
+  main.prose .lead { font-size:15px; color:var(--muted); }
+  main.prose code { background:var(--panel-2); border:1px solid var(--line); border-radius:5px; padding:1px 5px; font-size:12px; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <span class="logo">BTL Tech</span>
+  <a href="/">Toolkit</a>
+  <a href="/convert">PDF to Word</a>
+  <a href="/edit">Edit PDF</a>
+  <a href="/edit-text">Edit existing text</a>
+  <a href="/tools">Page tools</a>
+</nav>
+
+<header class="page">
+  <h1>Privacy</h1>
+  <p class="sub">What happens to a document you open here, told tool by tool &mdash; because the answer is genuinely different depending on which one you use.</p>
+</header>
+
+<main class="prose">
+  <div class="panel">
+
+    <h2>Two different promises</h2>
+    <p class="lead">
+      Some of these tools do their work on the server, which means your file is sent
+      to it. Two of them do everything inside your own browser and send nothing at
+      all. It would be easy to write "your files never leave your device" across the
+      whole site, and it would be untrue for half of it.
+    </p>
+
+    <table>
+      <tr><th>Tool</th><th>Does your file reach the server?</th></tr>
+      <tr><td><a href="/convert">PDF to Word</a></td><td class="yes">Yes &mdash; uploaded, converted, sent back, deleted</td></tr>
+      <tr><td><a href="/tools">Page tools</a></td><td class="yes">Yes &mdash; same path</td></tr>
+      <tr><td><a href="/edit">Edit PDF</a></td><td class="no">No</td></tr>
+      <tr><td><a href="/edit-text">Edit existing text</a></td><td class="no">No</td></tr>
+    </table>
+
+    <h2>When your file is uploaded</h2>
+    <ul>
+      <li>It is written to a temporary folder on the server, processed, and sent back to you as a download.</li>
+      <li><strong>That folder is deleted as soon as your download has been sent</strong> &mdash; and also if the conversion fails or is rejected.</li>
+      <li>It is not copied anywhere else. There is no database, no file storage, no backup and no queue holding your document.</li>
+      <li><strong>The name of your file is not recorded.</strong> The server's log notes only the file type, its size and how many pages it had. Documents get named after people, clients and cases, so the name is treated as part of your document rather than as a detail about it.</li>
+    </ul>
+
+    <h2>When nothing is uploaded</h2>
+    <ul>
+      <li><a href="/edit">Edit PDF</a> and <a href="/edit-text">Edit existing text</a> open your document in your own browser, hold it in that tab, and save it back to your device.</li>
+      <li><strong>No request carries it anywhere.</strong> This is checked automatically rather than simply asserted: an automated test opens and edits a document while watching every network request the page makes, and fails if any of them is anything but a plain request for this site's own files.</li>
+      <li>The PDF engine, the fonts and the scripts those pages need are served from this site, not from anyone else's, so using them does not tell a third party you were here.</li>
+      <li>Closing the tab discards the document. Nothing is kept between visits.</li>
+    </ul>
+
+    <h2>What this site collects about you</h2>
+    <ul>
+      <li><strong>No cookies.</strong> No analytics, no tracking pixels, no advertising, and no third-party scripts of any kind on any page.</li>
+      <li><strong>No accounts</strong>, so no names, email addresses or passwords are held.</li>
+      <li><strong>Requests are logged by the hosting platform.</strong> Like any website, the service runs on hosting that records that a request happened &mdash; including the IP address it came from, the time, and the page requested. That is operational logging by the host, and an IP address counts as personal data.</li>
+    </ul>
+
+    <h2>Checking any of this for yourself</h2>
+    <p>
+      The whole service is free software, and the exact code running right now can be
+      downloaded from <a href="/source">the source page</a>. Every statement above is
+      something you can verify in it rather than take on trust &mdash; the deletion of
+      uploads, the absence of tracking, and what the log actually records.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      For any question about this notice, or about a document you have processed here,
+      contact BTLTECH LTD. Because uploads are deleted as soon as they are sent back
+      and there are no accounts, there is normally nothing held about you.
+    </p>
+
+  </div>
+</main>
+
+<footer class="foot">
+  <a href="/source">Source code</a> &middot; AGPL-3.0-or-later &middot;
+  <a href="/privacy">Privacy</a>
+  <!--SUPPORT-->
+</footer>
+
+</body>
+</html>

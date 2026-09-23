@@ -208,6 +208,12 @@ async def edit_text_page() -> HTMLResponse:
     return _page("edittext.html")
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_page() -> HTMLResponse:
+    """What happens to a document, tool by tool."""
+    return _page("privacy.html")
+
+
 @app.get("/tools", response_class=HTMLResponse)
 async def tools_page() -> HTMLResponse:
     """Server-side page tools UI."""
