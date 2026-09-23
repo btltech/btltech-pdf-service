@@ -24,7 +24,7 @@ run() {
   "$@" || FAILED=1
 }
 
-run "endpoints (46 assertions)" "$PY" scripts/test_tools.py
+run "endpoints (50 assertions)" "$PY" scripts/test_tools.py
 run "release checks" "$PY" scripts/test_release.py
 run "paid conversion rules (60 assertions)" "$PY" scripts/test_billing.py
 run "edit-text engine vs the frozen reference" node scripts/regression_edittext.mjs

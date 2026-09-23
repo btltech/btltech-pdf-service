@@ -70,6 +70,8 @@ from config import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
+# Short, stable per-deployment string used to address the assets.
+ASSET_VERSION = (os.environ.get("PDF_SOURCE_VERSION") or os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "")[:12]
 STATIC_DIR = BASE_DIR / "static"
 
 DOCX_MEDIA_TYPE = (
@@ -159,8 +161,24 @@ async def canonical_host(request, call_next):
 
 app.add_middleware(StaticGZip, minimum_size=1024)
 
-# Stylesheet and other static assets.
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+class FreshStatic(StaticFiles):
+    """Static files that are allowed to be cached, but must be checked first.
+
+    Without this the CDN in front of the site kept the stylesheet and the
+    scripts for four hours, so a fix took four hours to reach anyone - and, far
+    worse, a visitor could be served a new page with the old scripts, which is
+    how a working site breaks in ways nobody can reproduce. `no-cache` does not
+    mean "do not store": the browser and the CDN still keep the file and still
+    send an ETag, so an unchanged file costs a 304 and no bytes.
+    """
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", FreshStatic(directory=STATIC_DIR), name="static")
 
 
 def parse_pages(spec: Optional[str]) -> Tuple[Optional[int], Optional[int]]:
@@ -211,7 +229,13 @@ def _page(name: str) -> HTMLResponse:
     path = STATIC_DIR / name
     if not path.is_file():
         raise HTTPException(404, f"Page '{name}' is not installed")
-    return HTMLResponse(path.read_text(encoding="utf-8").replace("<!--SUPPORT-->", _support_link()))
+    html_text = path.read_text(encoding="utf-8").replace("<!--SUPPORT-->", _support_link())
+    # A new deployment gets new asset addresses, so nothing already held in a
+    # cache can be served against a page that has moved on.
+    if ASSET_VERSION:
+        html_text = re.sub(r'(/static/[A-Za-z0-9_./-]+\.(?:css|js|mjs))(["\'])',
+                           rf"\1?v={ASSET_VERSION}\2", html_text)
+    return HTMLResponse(html_text)
 
 
 @app.get("/", response_class=HTMLResponse)

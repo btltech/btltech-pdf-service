@@ -236,6 +236,21 @@ check(
 # The service can answer on several hostnames. Only the ones it is told about
 # should be redirected: getting this wrong would send the Railway URL, or
 # localhost, into a loop.
+print("\n=== a deployment reaches people ===")
+r = client.get("/static/app.css")
+check("static files are revalidated rather than held for hours",
+      r.headers.get("cache-control") == "no-cache", r.headers.get("cache-control", "(none)"))
+check("...and carry an ETag, so an unchanged file costs no bytes", bool(r.headers.get("etag")))
+import app as _app  # noqa: E402
+
+_saved_version = _app.ASSET_VERSION
+_app.ASSET_VERSION = "deadbeef1234"
+body = client.get("/edit-text").text
+check("the page asks for this deployment's assets, not whatever is cached",
+      "/static/edittext/ui.mjs?v=deadbeef1234" in body)
+check("the stylesheet is versioned too", "/static/app.css?v=deadbeef1234" in body)
+_app.ASSET_VERSION = _saved_version
+
 print("\n=== findable by a search engine ===")
 r = client.get("/robots.txt")
 check("robots.txt is served", r.status_code == 200 and "User-agent" in r.text, str(r.status_code))
