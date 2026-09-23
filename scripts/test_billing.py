@@ -206,6 +206,89 @@ config.PACKS_RAW = "10:2.00"
 config.DATABASE_URL = ""
 check("with no database, nothing is metered", not billing.enabled())
 
+# ------------------------------------------------------------- the endpoints ---
+# The rules above are pure logic. These call the real HTTP handlers with billing
+# switched on, because a handler can be perfectly correct and still fail on a
+# name it never resolves until money is involved - which is exactly what happened
+# the first time this was deployed.
+print("\n=== the endpoints, with billing on ===")
+# the section above deliberately switched billing off; put it back first
+config.BILLING_ON = True
+config.DATABASE_URL = "memory://test"
+config.PACKS_RAW = "10:2.00,25:4.00"
+config.FREE_PER_DAY = 1
+from fastapi.testclient import TestClient  # noqa: E402
+
+import app as the_app  # noqa: E402
+
+the_app.billing = billing
+client = TestClient(the_app.app)
+
+r = client.get("/api/allowance")
+check("the allowance endpoint answers", r.status_code == 200, str(r.status_code))
+body = r.json() if r.status_code == 200 else {}
+check("it reports that billing is on", body.get("billing") is True, str(body)[:90])
+check("it names a currency", bool(body.get("currency")), str(body.get("currency")))
+check("it offers the configured packs", len(body.get("packs", [])) == 2, str(body.get("packs"))[:90])
+
+r = client.post("/api/pay/create", json={"credits": 10})
+check("with no PayPal credentials, buying is unavailable rather than broken",
+      r.status_code == 503, str(r.status_code))
+
+# Stand PayPal up as a fake so the rules around it can be reached at all.
+import paypal as real_paypal  # noqa: E402
+
+
+class FakePayPal:
+    PayPalError = real_paypal.PayPalError
+    Capture = real_paypal.Capture
+    last_amount = None
+
+    @staticmethod
+    def configured():
+        return True
+
+    @staticmethod
+    async def create_order(amount, currency, description):
+        FakePayPal.last_amount = amount
+        return "ORDER-FAKE", "https://example.test/approve"
+
+    @staticmethod
+    async def capture_order(order_id):
+        # a payment of an amount this server does not sell
+        amount = "0.01" if order_id == "ORDER-WRONG-PRICE" else "2.00"
+        return real_paypal.Capture(order_id, "COMPLETED", amount, "GBP")
+
+the_app.paypal = FakePayPal
+
+r = client.post("/api/pay/create", json={"credits": 999})
+check("a pack that is not on offer is refused", r.status_code == 400, str(r.status_code))
+
+r = client.post("/api/pay/create", json={"credits": 10})
+check("a real pack starts a payment", r.status_code == 200, str(r.status_code))
+check("the price sent to PayPal is the server's, not the browser's",
+      FakePayPal.last_amount == "2.00", str(FakePayPal.last_amount))
+check("the browser is sent to PayPal's own approval page",
+      r.json().get("approve_url", "").startswith("https://"), str(r.json())[:80])
+
+r = client.post("/api/pay/capture", json={"order_id": "ORDER-WRONG-PRICE"})
+check("a payment for an amount not on sale grants nothing", r.status_code == 409, str(r.status_code))
+
+r = client.post("/api/pay/capture", json={"order_id": "ORDER-GOOD"})
+check("a completed payment grants the pack", r.status_code == 200, str(r.status_code))
+granted = r.json() if r.status_code == 200 else {}
+check("it returns a token to keep", bool(granted.get("token")), str(granted)[:70])
+check("it adds the credits that were bought", granted.get("added") == 10, str(granted.get("added")))
+
+r = client.post("/api/pay/capture", json={"order_id": "ORDER-GOOD"},
+                headers={"X-PDF-Token": granted.get("token", "")})
+check("capturing the same order twice adds nothing more",
+      r.status_code == 200 and store.credits(granted.get("token", "")) == 10,
+      str(store.credits(granted.get("token", ""))))
+
+r = client.post("/api/pay/capture", json={})
+check("a capture with no order is refused", r.status_code == 400, str(r.status_code))
+
 print("\n=== summary ===")
 print(f"  passed: {len(PASSED)}")
 print(f"  failed: {len(FAILED)}")

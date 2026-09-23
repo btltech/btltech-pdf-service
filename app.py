@@ -52,6 +52,7 @@ import tools
 from config import (
     CANONICAL_HOST,
     CONVERT_TIMEOUT_S,
+    CURRENCY,
     CONVERT_WORKERS,
     HOST,
     MAX_UPLOAD_MB,
