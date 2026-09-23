@@ -1,23 +1,38 @@
 # Deploying to Railway
 
-Everything here is ready to deploy; nothing has been deployed. Work through the
-checklist before the service is public, because two of the items are obligations
-rather than preferences.
+Everything here is ready to deploy; nothing has been deployed.
 
-## Before it goes public
+## Release requirements
+
+These come from how the service is built, and each one is finished by changing a
+setting or a page:
 
 - [ ] **Choose the public repository and set `PDF_SOURCE_REPO_URL`.** AGPL-3.0
       section 13 requires that every user of a network service is offered its
       source. `/source.zip` already serves the running code, so the obligation is
       met either way, but `/source` promises a repository link and should not
       point at nothing.
-- [ ] **Solicitor review of the AGPL route**, as already planned.
-- [ ] **Add the privacy-notice line about uploads**: PDF → Word and the page tools
-      receive the file on the server (converted in a temporary folder, deleted
-      when the download finishes); `/edit` and `/edit-text` never upload anything.
-      Those are different promises and the notice should say so.
+- [ ] **Publish the privacy notice.** The tools make two different promises and
+      the notice has to say which is which: PDF → Word and the page tools receive
+      the file on the server (converted in a temporary folder, deleted when the
+      download finishes), while `/edit` and `/edit-text` never upload anything at
+      all. `PRIVACY.md` in this repository is the draft.
 - [ ] Decide whether `PDF_SUPPORT_URL` is set (see below). It is optional and
       nothing is gated behind it.
+
+## Not a deployment blocker
+
+A solicitor's review of the AGPL route is worth having before the service is
+promoted, and it is on the owner's list, but it is not something the software
+waits on: nothing about it changes whether this deploys or runs correctly. Treat
+it as business sign-off running in parallel, not as a gate on the release.
+
+Charging for the service is likewise not an AGPL question. The licence obliges an
+offer of source; it does not require the service to be free, and BTLTECH could
+charge for access or convenience while complying with it. The reason the text
+editor is free is narrower and practical: it executes in the customer's browser,
+so a payment check in the page can be bypassed by anyone who looks - the published
+source makes that easier, but it is not what would forbid charging.
 
 ## Settings
 
@@ -31,6 +46,13 @@ rather than preferences.
 | `PDF_SUPPORT_LABEL` | e.g. `Support this tool` | the link's wording |
 
 `PORT` is set by Railway and picked up automatically.
+
+**Access logs are a deliberate choice, so make it.** The start command above leaves
+uvicorn's access log on, which writes a line per request including the caller's IP
+address. That is ordinary practice and useful when something breaks, but an IP is
+personal data and this service otherwise holds nothing. Add `--no-access-log` to
+the start command to turn it off; Railway's own edge logging is separate and is not
+affected either way. Whichever you choose, `PRIVACY.md` has to match it.
 
 ## Resources and what it should cost
 

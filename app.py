@@ -285,7 +285,18 @@ async def convert(
             )
 
         converted = (end - start) if start is not None and end is not None else page_count
-        log.info("Converted '%s' (%s page(s)) -> %s", filename, converted, out_name)
+        # The filename is deliberately not logged. People name documents after
+        # themselves, their clients and their cases, and a service that promises
+        # to keep nothing should not leave that promise's exception in a log file
+        # that outlives the upload. The extension, size and page count are what
+        # diagnosing a failed conversion actually needs.
+        log.info(
+            "Converted a %s upload of %.1f MB (%s of %s page(s))",
+            (os.path.splitext(filename)[1] or ".pdf").lower(),
+            len(data) / 1_048_576,
+            converted,
+            page_count,
+        )
 
         return FileResponse(
             path=out_path,
@@ -300,7 +311,7 @@ async def convert(
         raise
     except Exception as exc:  # noqa: BLE001 - surface any failure to the UI
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        log.exception("Conversion failed for '%s'", filename)
+        log.exception("Conversion failed for a %s upload", (os.path.splitext(filename)[1] or ".pdf").lower())
         raise HTTPException(500, f"Conversion failed: {exc}") from exc
 
 
