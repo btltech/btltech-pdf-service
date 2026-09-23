@@ -119,6 +119,11 @@ a.card-link .pill {
 /* ------------------------------------------------------------- dropzone --- */
 
 .dropzone {
+  /* Explicitly a block. On the page-tools cards this is a <label>, which is
+     inline by default, and vertical padding on an inline box does not push its
+     neighbours apart - so the 38px padding below bled over the description
+     above it and the file name below it. */
+  display: block;
   border: 2px dashed var(--line-strong);
   border-radius: 12px;
   padding: 38px 20px;

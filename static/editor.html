@@ -29,10 +29,10 @@
   .stagebar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:2px 4px 12px; }
   .stagebar .fname { flex:1; min-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
   #pages { display:flex; flex-direction:column; align-items:center; gap:18px; max-height:76vh; overflow:auto; padding:6px; }
-  .page { position:relative; background:#fff; box-shadow:0 6px 22px rgba(0,0,0,.45); border-radius:3px; line-height:0; }
-  .page canvas { display:block; }
-  .page canvas.overlay { position:absolute; left:0; top:0; cursor:crosshair; touch-action:none; }
-  .page.removed { display:none; }
+  .pdfpage { position:relative; background:#fff; box-shadow:0 6px 22px rgba(0,0,0,.45); border-radius:3px; line-height:0; }
+  .pdfpage canvas { display:block; }
+  .pdfpage canvas.overlay { position:absolute; left:0; top:0; cursor:crosshair; touch-action:none; }
+  .pdfpage.removed { display:none; }
   .thumbs { display:grid; grid-template-columns:repeat(auto-fill,minmax(66px,1fr)); gap:8px; max-height:250px; overflow:auto; }
   .thumb { border:1px solid var(--line-strong); border-radius:6px; overflow:hidden; background:#fff; }
   .thumb canvas { display:block; width:100%; height:auto; }
@@ -269,7 +269,7 @@ function renderPage(index) {
     var viewport = page.getViewport({ scale: state.scale });
 
     var container = document.createElement("div");
-    container.className = "page";
+    container.className = "pdfpage";
 
     var base = document.createElement("canvas");
     base.width = Math.floor(viewport.width);

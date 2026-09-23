@@ -54,7 +54,10 @@ function check(label, ok, detail = "") {
 }
 
 const browser = await chromium.launch({ executablePath: CHROME, headless: true });
-const context = await browser.newContext({ acceptDownloads: true });
+// Tall enough that the whole first page of the fixture is on screen: the
+// drawing steps below click at fixed offsets from the canvas, and anything
+// below the fold would land somewhere else entirely.
+const context = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 1400 } });
 const page = await context.newPage();
 
 const noise = [];
@@ -103,7 +106,7 @@ check("thumbnails were built", (await page.$$(".thumb")).length === 4);
 check("save is enabled once loaded", !(await page.isDisabled("#saveBtn")));
 
 console.log("\n=== editor: annotating ===");
-const overlay = await page.$(".page canvas.overlay");
+const overlay = await page.$(".pdfpage canvas.overlay");
 const box = await overlay.boundingBox();
 
 await page.click('.tbtn[data-tool="text"]');
