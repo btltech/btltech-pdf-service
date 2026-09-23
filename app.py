@@ -40,7 +40,14 @@ except ImportError:  # pragma: no cover - legacy PyMuPDF
     import fitz
 
 from fastapi import Body, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
@@ -401,6 +408,38 @@ async def pay_capture(payload: dict = Body(...), x_pdf_token: Optional[str] = He
             f"quote reference {order_id} and it will be put right.",
         ) from exc
     return {"token": token, "credits": state.credits, "added": pack.credits}
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots() -> str:
+    """Let crawlers in, and point them at the sitemap.
+
+    The API and the source download are excluded: they are not pages, and a
+    crawler fetching /source.zip repeatedly would cost bandwidth for nothing.
+    """
+    host = CANONICAL_HOST or "pdf.btltech.co.uk"
+    return (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /api/\n"
+        "Disallow: /source.zip\n"
+        f"\nSitemap: https://{host}/sitemap.xml\n"
+    )
+
+
+@app.get("/sitemap.xml")
+async def sitemap() -> Response:
+    """The pages worth indexing, which is all of them except the API."""
+    host = CANONICAL_HOST or "pdf.btltech.co.uk"
+    pages = [("/", "1.0"), ("/convert", "0.9"), ("/edit-text", "0.9"),
+             ("/edit", "0.8"), ("/tools", "0.8"), ("/privacy", "0.3"), ("/source", "0.3")]
+    urls = "".join(
+        f"<url><loc>https://{host}{path}</loc><priority>{priority}</priority></url>"
+        for path, priority in pages
+    )
+    body = ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' + urls + "</urlset>")
+    return Response(body, media_type="application/xml")
 
 
 @app.get("/api/health")

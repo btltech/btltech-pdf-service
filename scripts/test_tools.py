@@ -236,6 +236,20 @@ check(
 # The service can answer on several hostnames. Only the ones it is told about
 # should be redirected: getting this wrong would send the Railway URL, or
 # localhost, into a loop.
+print("\n=== findable by a search engine ===")
+r = client.get("/robots.txt")
+check("robots.txt is served", r.status_code == 200 and "User-agent" in r.text, str(r.status_code))
+check("it points at the sitemap", "Sitemap:" in r.text)
+check("the API is not offered for crawling", "Disallow: /api/" in r.text)
+r = client.get("/sitemap.xml")
+check("a sitemap is served", r.status_code == 200 and "<urlset" in r.text, str(r.status_code))
+check("it lists the tool pages", all(p in r.text for p in ("/convert", "/edit-text", "/tools")))
+for page, path in (("index.html", "/"), ("convert.html", "/convert"), ("edittext.html", "/edit-text")):
+    body = client.get(path).text
+    check(f"{path} has a description for search results",
+          'name="description"' in body and len(body.split('name="description" content="')[1].split('"')[0]) > 60)
+    check(f"{path} names its canonical address", 'rel="canonical"' in body)
+
 print("\n=== canonical host ===")
 import importlib  # noqa: E402
 
