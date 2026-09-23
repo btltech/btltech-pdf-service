@@ -50,7 +50,7 @@ def make_pdf(pages=4, with_image=True):
 
     for index in range(pages):
         page = doc.new_page()
-        page.insert_text((72, 90), f"BTL Tech test page {index + 1}", fontsize=18)
+        page.insert_text((72, 90), f"BTLTech test page {index + 1}", fontsize=18)
         for row in range(6):
             box = fitz.Rect(72, 140 + row * 20, 400, 158 + row * 20)
             page.draw_rect(box, color=(0.4, 0.4, 0.4))

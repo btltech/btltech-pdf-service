@@ -2,7 +2,7 @@
 # Copyright (C) 2026 BTLTECH LTD
 """Inspect the PDF the editor saved during scripts/browser_test.mjs.
 
-The browser test loads test-output/four.pdf (pages titled "BTL Tech test
+The browser test loads test-output/four.pdf (pages titled "BTLTech test
 page 1..4"), writes "EDITOR TEST MARK" and a highlight on page 1, removes
 page 2, moves a page, and saves test-output/edited.pdf (plus the page
 order it showed, in edited-order.json). This checks the
@@ -36,7 +36,7 @@ def check(label, condition, detail=""):
 
 
 def page_number(page):
-    found = re.search(r"BTL Tech test page (\d+)", page.get_text())
+    found = re.search(r"BTLTech test page (\d+)", page.get_text())
     return int(found.group(1)) if found else None
 
 
@@ -63,7 +63,7 @@ check("pages are saved in the order the editor showed", order == shown,
 
 all_text = "\n".join(page.get_text() for page in edited)
 check("added text is real, selectable text", "EDITOR TEST MARK" in all_text)
-check("the original text survives", "row 5 value" in all_text and "BTL Tech test page 1" in all_text)
+check("the original text survives", "row 5 value" in all_text and "BTLTech test page 1" in all_text)
 
 marked = next((page for page in edited if "EDITOR TEST MARK" in page.get_text()), None)
 original_first = source[0]

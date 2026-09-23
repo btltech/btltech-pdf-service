@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
-# BTL Tech — PDF Toolkit
+# BTLTech — PDF Toolkit
 
 A free, self-contained PDF service run by BTLTECH LTD, in three parts:
 
@@ -281,7 +281,7 @@ This service is licensed under the GNU AGPL v3.0 or later. What that means for w
   `.env` file or credentials, because everything else in the directory is published.
 - **Keep it separate.** Do not import code from other BTLTECH LTD software into this service, and do
   not copy this code into other products; either would bring that software under the AGPL.
-- The BTL Tech name and logo are not licensed under the AGPL.
+- The BTLTech name and logo are not licensed under the AGPL.
 
 Third-party components and their licences are listed in `THIRD_PARTY_NOTICES.md`; licence texts
 for the bundled browser libraries are in `LICENSES/`.

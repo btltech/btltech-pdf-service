@@ -114,12 +114,12 @@ def source_page() -> HTMLResponse:
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Source code &mdash; BTL Tech</title>
+<title>Source code &mdash; BTLTech</title>
 <link rel="stylesheet" href="/static/app.css" />
 </head>
 <body>
 <nav class="top">
-  <span class="logo">BTL Tech</span>
+  <span class="logo">BTLTech</span>
   <a href="/">Toolkit</a>
   <a href="/convert">PDF to Word</a>
   <a href="/edit">Edit PDF</a>
@@ -143,7 +143,7 @@ def source_page() -> HTMLResponse:
   files this server is running, and includes the full licence, the third-party notices and the
   list of pinned dependencies.</p>
   {repo}
-  <p class="small muted">The BTL Tech name and logo are not licensed under the AGPL. This offer covers this
+  <p class="small muted">The BTLTech name and logo are not licensed under the AGPL. This offer covers this
   PDF service only; no other BTLTECH LTD software is part of it.</p>
 </main>
 <footer class="foot">

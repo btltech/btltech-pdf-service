@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 BTLTECH LTD
-"""BTL Tech - PDF to Word converter (V1 + V2).
+"""BTLTech - PDF to Word converter (V1 + V2).
 
 Converts digital/text PDF files into editable .docx documents, preserving
 images, tables, headings and general formatting.
@@ -76,7 +76,7 @@ logging.basicConfig(level=logging.WARNING, handlers=[_handler], force=True)
 log = logging.getLogger("pdf2word")
 log.setLevel(logging.INFO)
 
-app = FastAPI(title="BTL Tech PDF Toolkit", version="2.0.0")
+app = FastAPI(title="BTLTech PDF Toolkit", version="2.0.0")
 
 # PDF -> Word runs in a child process per conversion (converter_worker.py), so
 # pdf2docx's memory is returned when each one ends. This caps how many run at
@@ -344,5 +344,5 @@ async def convert(
 if __name__ == "__main__":
     import uvicorn
 
-    log.info("BTL Tech PDF to Word converter listening on http://%s:%s", HOST, PORT)
+    log.info("BTLTech PDF to Word converter listening on http://%s:%s", HOST, PORT)
     uvicorn.run(app, host=HOST, port=PORT)

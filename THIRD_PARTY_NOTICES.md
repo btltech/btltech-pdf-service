@@ -98,4 +98,4 @@ those libraries must be reviewed first.**
 ## Not part of this service
 
 This repository contains no code from, and does not link to, any other BTLTECH
-LTD software. The BTL Tech name and logo are not licensed under the AGPL.
+LTD software. The BTLTech name and logo are not licensed under the AGPL.

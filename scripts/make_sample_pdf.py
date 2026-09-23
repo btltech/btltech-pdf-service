@@ -37,7 +37,7 @@ def make_logo(path: str) -> None:
     page.draw_rect(fitz.Rect(0, 0, 300, 170), color=None, fill=(0.05, 0.07, 0.12))
     page.draw_rect(fitz.Rect(20, 24, 120, 80), color=(0.36, 0.55, 1.0), fill=(0.14, 0.28, 0.62))
     page.draw_circle(fitz.Point(210, 60), 40, color=(1.0, 0.55, 0.3), fill=(0.85, 0.35, 0.15))
-    page.insert_text((20, 120), "BTL Tech", fontsize=22, color=(1, 1, 1))
+    page.insert_text((20, 120), "BTLTech", fontsize=22, color=(1, 1, 1))
     page.insert_text((20, 145), "PDF toolkit sample", fontsize=11, color=(0.7, 0.78, 0.9))
     page.get_pixmap().save(path)
     doc.close()
@@ -79,7 +79,7 @@ def main() -> None:
     doc = fitz.open()
     page = doc.new_page()  # A4 portrait: 595 x 842 pt
 
-    page.insert_text((72, 90), "BTL Tech Sample Report", fontsize=26, color=(0.05, 0.07, 0.12))
+    page.insert_text((72, 90), "BTLTech Sample Report", fontsize=26, color=(0.05, 0.07, 0.12))
     page.insert_text(
         (72, 116), "Sample document for the PDF to Word converter", fontsize=11, color=(0.4, 0.45, 0.55)
     )

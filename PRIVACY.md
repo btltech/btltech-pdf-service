@@ -1,4 +1,4 @@
-# Privacy notice — BTL Tech PDF Toolkit
+# Privacy notice — BTLTech PDF Toolkit
 
 **Draft for review.** Every factual statement below was checked against the code in
 this repository on 23 September 2026, and the checks are named so they can be
