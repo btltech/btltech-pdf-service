@@ -212,7 +212,7 @@ scripts/run_tests.sh --browser     # everything; omit --browser for the Python s
 
 | Suite | Script | Assertions |
 |---|---|---|
-| Every endpoint, validation path, page and the converter (in-process) | `scripts/test_tools.py` | 29 |
+| Every endpoint, validation path, page and the converter (in-process) | `scripts/test_tools.py` | 35 |
 | Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
 | The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
 | Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 15 |

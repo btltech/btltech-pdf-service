@@ -49,7 +49,45 @@ quota, larger uploads, batch work - is still open, and no decision has been made
 | `PDF_SUPPORT_URL` | leave unset for now | would render a voluntary "support this tool" link; unset until the commercial approach is decided |
 | `PDF_SUPPORT_LABEL` | e.g. `Support this tool` | the link's wording |
 
+| `PDF_CANONICAL_HOST` | `pdf.btltech.co.uk` | the one address people see and link to |
+| `PDF_REDIRECT_HOSTS` | `tools.btltech.co.uk` | comma-separated; these 301 to the canonical host, path and query intact |
+
 `PORT` is set by Railway and picked up automatically.
+
+## Giving it a BTLTech address
+
+The generated `*.up.railway.app` address looks like infrastructure rather than a
+product, so the service should answer on a BTLTech name before it is linked from
+the main site. The plan is `pdf.btltech.co.uk` as the real address, with
+`tools.btltech.co.uk` redirecting to it so the broader name is claimed and cannot
+be taken later.
+
+The redirect is done by the application (see `PDF_CANONICAL_HOST` above), not by a
+Cloudflare rule, so it is covered by the test suite and moves with the code. Only
+hostnames named in `PDF_REDIRECT_HOSTS` are touched; everything else, including the
+Railway URL, is served normally.
+
+**Adding the custom domains needs doing in the Railway dashboard.** `railway domain
+pdf.btltech.co.uk` returns `Unauthorized` from the CLI while every other
+authenticated call on the same login succeeds, which is what a plan restriction
+looks like rather than a bad token - custom domains are a paid-plan feature. Check
+the plan on the project, add both hostnames there, and Railway will show the CNAME
+target to use.
+
+Then, in Cloudflare for `btltech.co.uk`:
+
+| Type | Name | Target | Proxy |
+|---|---|---|---|
+| CNAME | `pdf` | the target Railway shows | see below |
+| CNAME | `tools` | the same target | see below |
+
+If the records are proxied (orange cloud), set the zone's SSL/TLS mode to **Full**
+or **Full (strict)**. Leaving it on Flexible with a backend that already serves
+HTTPS is the classic cause of a redirect loop. DNS-only (grey cloud) also works and
+is the simpler thing to try first.
+
+Finally set `PDF_CANONICAL_HOST` and `PDF_REDIRECT_HOSTS`, redeploy, and check that
+`https://tools.btltech.co.uk/edit-text` lands on `https://pdf.btltech.co.uk/edit-text`.
 
 **Access logs.** `railway.json` runs uvicorn with `--no-access-log`. Railway
 records requests at its own edge either way, so the application's copy of that log

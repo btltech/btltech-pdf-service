@@ -40,7 +40,7 @@ except ImportError:  # pragma: no cover - legacy PyMuPDF
     import fitz
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
@@ -48,11 +48,13 @@ from starlette.background import BackgroundTask
 import source_offer
 import tools
 from config import (
+    CANONICAL_HOST,
     CONVERT_TIMEOUT_S,
     CONVERT_WORKERS,
     HOST,
     MAX_UPLOAD_MB,
     PORT,
+    REDIRECT_HOSTS,
     SUPPORT_LABEL,
     SUPPORT_URL,
 )
@@ -125,6 +127,24 @@ class StaticGZip(GZipMiddleware):
         if scope["type"] == "http" and scope.get("path", "").startswith("/static/"):
             return await super().__call__(scope, receive, send)
         return await self.app(scope, receive, send)
+
+
+@app.middleware("http")
+async def canonical_host(request, call_next):
+    """Send the alternate hostnames to the canonical one, and nothing else.
+
+    Only hosts named in PDF_REDIRECT_HOSTS are touched, so the Railway URL,
+    localhost and the test client are unaffected. The path and query string are
+    carried across, so a shared deep link still lands where it was meant to.
+    """
+    if CANONICAL_HOST and REDIRECT_HOSTS:
+        host = (request.headers.get("host") or "").split(":")[0].lower()
+        if host in REDIRECT_HOSTS and host != CANONICAL_HOST:
+            target = f"https://{CANONICAL_HOST}{request.url.path}"
+            if request.url.query:
+                target += f"?{request.url.query}"
+            return RedirectResponse(target, status_code=301)
+    return await call_next(request)
 
 
 app.add_middleware(StaticGZip, minimum_size=1024)

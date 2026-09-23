@@ -53,3 +53,19 @@ SOURCE_VERSION = (
 # and that promise is worth more than the convenience.
 SUPPORT_URL = os.environ.get("PDF_SUPPORT_URL", "").strip()
 SUPPORT_LABEL = os.environ.get("PDF_SUPPORT_LABEL", "Support this tool").strip()
+
+# One address, so the service has one name. When the same deployment answers on
+# several hostnames - a bare Railway URL, an old name, a broader umbrella name -
+# only one should be the address people see, link to and share.
+#
+# CANONICAL_HOST is that name. REDIRECT_HOSTS lists the hostnames that should
+# send visitors to it with a permanent redirect. Hostnames NOT in that list are
+# left completely alone, which is what keeps the Railway URL, localhost and the
+# test client working normally: this never guesses, it only acts on names it has
+# been given.
+CANONICAL_HOST = os.environ.get("PDF_CANONICAL_HOST", "").strip().lower()
+REDIRECT_HOSTS = [
+    h.strip().lower()
+    for h in os.environ.get("PDF_REDIRECT_HOSTS", "").split(",")
+    if h.strip()
+]

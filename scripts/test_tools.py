@@ -232,6 +232,47 @@ check(
     f"{len(response.content)} bytes",
 )
 
+# --------------------------------------------------------------- one address ---
+# The service can answer on several hostnames. Only the ones it is told about
+# should be redirected: getting this wrong would send the Railway URL, or
+# localhost, into a loop.
+print("\n=== canonical host ===")
+import importlib  # noqa: E402
+
+import config  # noqa: E402
+
+_saved = (config.CANONICAL_HOST, config.REDIRECT_HOSTS)
+try:
+    import app as _app
+
+    _app.CANONICAL_HOST = "pdf.example.test"
+    _app.REDIRECT_HOSTS = ["tools.example.test"]
+    r = client.get("/", headers={"host": "tools.example.test"}, follow_redirects=False)
+    check("an alternate hostname redirects permanently", r.status_code == 301, str(r.status_code))
+    check(
+        "it redirects to the canonical host",
+        r.headers.get("location") == "https://pdf.example.test/",
+        r.headers.get("location", ""),
+    )
+    r = client.get("/edit-text?a=1", headers={"host": "tools.example.test"}, follow_redirects=False)
+    check(
+        "the path and query survive the redirect",
+        r.headers.get("location") == "https://pdf.example.test/edit-text?a=1",
+        r.headers.get("location", ""),
+    )
+    r = client.get("/", headers={"host": "pdf.example.test"}, follow_redirects=False)
+    check("the canonical host is served, not redirected", r.status_code == 200, str(r.status_code))
+    r = client.get("/", headers={"host": "anything-else.up.railway.app"}, follow_redirects=False)
+    check("an unlisted hostname is left alone", r.status_code == 200, str(r.status_code))
+    _app.CANONICAL_HOST, _app.REDIRECT_HOSTS = "", []
+    r = client.get("/", headers={"host": "tools.example.test"}, follow_redirects=False)
+    check("with nothing configured, nothing redirects", r.status_code == 200, str(r.status_code))
+finally:
+    import app as _app
+
+    _app.CANONICAL_HOST, _app.REDIRECT_HOSTS = _saved
+
+
 print("\n=== summary ===")
 print(f"  passed: {len(PASSED)}")
 print(f"  failed: {len(FAILED)}")

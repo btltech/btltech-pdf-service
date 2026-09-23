@@ -113,8 +113,20 @@ check("every production dependency is pinned exactly",
       all("==" in line for line in prod.splitlines() if line.strip() and not line.startswith("#")))
 
 print("\n=== separation from other BTLTECH LTD software ===")
+# Two different things are being guarded, so they are checked differently.
+#
+# OTHER is the real separation rule: no file may mention another BTLTECH LTD
+# product, or an absolute path from a developer's machine. That applies
+# everywhere, with no exceptions.
 OTHER = re.compile(r"repairflow|myassistant|obd|\becm\b|ledgerpad|taxlane|rackrush|lyrid|filmloop|"
-                   r"/users/|workers\.dev|railway\.app", re.I)
+                   r"/users/", re.I)
+# HOSTS keeps a specific deployment's hostnames out of the application, so the
+# published source is not tied to where BTLTECH happens to run it. The
+# deployment guide is exempt because its whole subject is that platform, and so
+# is the endpoint suite, which uses such a hostname as a fixture while testing
+# that unlisted hosts are left alone.
+HOSTS = re.compile(r"workers\.dev|railway\.app", re.I)
+HOST_EXEMPT = {"DEPLOYING.md", "scripts/test_tools.py", "railway.json", "Procfile"}
 offenders = []
 for dirpath, dirs, files in os.walk(ROOT):
     dirs[:] = [d for d in dirs if d not in {".git", ".venv", "node_modules", "test-output", "__pycache__",
@@ -123,9 +135,11 @@ for dirpath, dirs, files in os.walk(ROOT):
         rel = os.path.relpath(os.path.join(dirpath, name), ROOT)
         if rel in ("scripts/test_release.py", "LICENSE", "package-lock.json") or name.endswith((".pdf", ".png")):
             continue
-        if OTHER.search(read(rel).decode("utf-8", "ignore")):
+        text = read(rel).decode("utf-8", "ignore")
+        if OTHER.search(text) or (rel not in HOST_EXEMPT and HOSTS.search(text)):
             offenders.append(rel)
-check("no file refers to another BTLTECH LTD product or a local path", not offenders, ", ".join(offenders))
+check("no file refers to another BTLTECH LTD product, a local path, or a deployment hostname",
+      not offenders, ", ".join(offenders))
 imports = set()
 for rel in ("app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py"):
     imports |= set(re.findall(r"^\s*(?:from|import)\s+([\w.]+)", read(rel).decode(), re.M))
