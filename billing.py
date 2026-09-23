@@ -86,9 +86,14 @@ def _connect():
         # must be durable the moment it returns. Without it each request opened a
         # transaction that was never committed, so the counter reset between
         # requests and the free allowance was effectively unlimited.
+        # A short wait on purpose. If the database is unreachable the caller
+        # should find out in a couple of seconds and be let through free, not
+        # sit watching a spinner while the pool retries: the meter being broken
+        # is our problem, and making it the customer's would be the worse of the
+        # two failures.
         _pool = psycopg_pool.ConnectionPool(
-            config.DATABASE_URL, min_size=1, max_size=4, open=True,
-            kwargs={"autocommit": True},
+            config.DATABASE_URL, min_size=1, max_size=4, open=True, timeout=3,
+            kwargs={"autocommit": True, "connect_timeout": 3},
         )
     return _pool
 
@@ -114,6 +119,15 @@ CREATE TABLE IF NOT EXISTS paid_order (
     amount      TEXT NOT NULL,
     currency    TEXT NOT NULL,
     captured_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS document_export (
+    token      TEXT NOT NULL,
+    doc        TEXT NOT NULL,
+    order_id   TEXT NOT NULL,
+    amount     TEXT NOT NULL,
+    currency   TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (token, doc)
 );
 CREATE TABLE IF NOT EXISTS free_use (
     day  DATE NOT NULL,
@@ -264,6 +278,49 @@ def grant(order_id: str, token: Optional[str], credits: int, amount: str, curren
             "ON CONFLICT (token) DO UPDATE SET credits = credit_pack.credits + EXCLUDED.credits, "
             "updated_at = now()",
             (token, credits),
+        )
+    return token
+
+
+# ------------------------------------------------- one finished document ---
+# A document is known here only by a SHA-256 the browser worked out from the
+# file. That is enough to remember which finished document somebody has paid
+# for, and it is not the document: the file itself never leaves their machine,
+# which is the whole point of the editor.
+def export_price() -> Pack:
+    """The one thing on sale here: a clean copy of one edited document."""
+    pounds, _, pence = config.EXPORT_PRICE.partition(".")
+    try:
+        price = f"{int(pounds)}.{(pence + '00')[:2]}"
+    except ValueError:
+        price = "1.00"
+    return Pack(1, price)
+
+
+def export_unlocked(token: Optional[str], doc: str) -> bool:
+    """Has this token paid for a clean copy of this document?"""
+    if not token or not doc or not enabled():
+        return False
+    with _cursor() as cur:
+        cur.execute("SELECT 1 FROM document_export WHERE token = %s AND doc = %s", (token, doc))
+        return cur.fetchone() is not None
+
+
+def grant_export(order_id: str, token: Optional[str], doc: str, amount: str, currency: str) -> str:
+    """Record that a finished document has been paid for. Twice is once."""
+    token = token or new_token()
+    with _cursor() as cur:
+        cur.execute(
+            "INSERT INTO paid_order (order_id, token, credits, amount, currency) "
+            "VALUES (%s, %s, 0, %s, %s) ON CONFLICT (order_id) DO NOTHING RETURNING order_id",
+            (order_id, token, amount, currency),
+        )
+        if not cur.fetchone():
+            return token                                  # already recorded
+        cur.execute(
+            "INSERT INTO document_export (token, doc, order_id, amount, currency) "
+            "VALUES (%s, %s, %s, %s, %s) ON CONFLICT (token, doc) DO NOTHING",
+            (token, doc, order_id, amount, currency),
         )
     return token
 

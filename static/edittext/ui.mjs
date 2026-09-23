@@ -18,7 +18,34 @@ const state = {
   bytes: null, name: "", doc: null, model: null, runs: [], boxes: [],
   pageIndex: 0, pageCount: 0, selected: -1, scale: 1,
   preview: null, previewDoc: null, result: null,
+  // Edits are kept as a list and replayed from the original file. That is what
+  // lets the clean copy be withheld until it is paid for: the finished document
+  // is built at the moment of payment, not kept in this tab behind a button.
+  edits: [], working: null, docHash: "", locked: false, price: "", currency: "",
 };
+
+const TOKEN_KEY = "btltech-pdf-credits";
+const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } };
+const keepToken = (t) => { try { localStorage.setItem(TOKEN_KEY, t); } catch (e) {} };
+
+/** A fingerprint of the file, worked out here. The file itself is never sent. */
+async function hashOf(bytes) {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function refreshLock() {
+  if (!state.docHash) return;
+  try {
+    const headers = token() ? { "X-PDF-Token": token() } : {};
+    const r = await fetch(`/api/export/status?doc=${encodeURIComponent(state.docHash)}`, { headers });
+    const d = await r.json();
+    state.locked = d.billing === true && d.unlocked !== true;
+    state.price = d.price || ""; state.currency = d.currency || "";
+  } catch (e) {
+    state.locked = false;            // if the question cannot be asked, do not charge
+  }
+}
 
 // --------------------------------------------------------------- rendering ---
 function renderPageTo(page, canvas, wPt, hPt, scale) {
@@ -89,7 +116,10 @@ async function loadFile(file) {
   if (!/\.pdf$/i.test(file.name)) { say("That is not a PDF.", "bad"); return; }
   state.name = file.name;
   state.bytes = new Uint8Array(await file.arrayBuffer());
+  state.edits = []; state.working = null;
   state.pageIndex = 0;
+  state.docHash = await hashOf(state.bytes);
+  await refreshLock();
   closeDocs();
   say("Reading the document…");
   const probe = E.openDoc(state.bytes);
@@ -161,6 +191,7 @@ async function showPage(index) {
   if (messages.length) say(messages.join("<br>"), open.unsupported ? "bad" : "warn"); else hideStatus();
   $("editor").hidden = true;
   $("pickhint").hidden = false;
+  renderActions();
 }
 
 // --------------------------------------------------------------- selection ---
@@ -194,7 +225,7 @@ function clearPreview() {
   if (state.previewDoc) { try { P.FPDF_CloseDocument(state.previewDoc); } catch { /* gone */ } state.previewDoc = null; }
   $("previewwrap").hidden = true;
   $("aftercap").hidden = true;
-  $("save").disabled = true;
+  $("keep").disabled = true;
   $("details").hidden = true;
 }
 
@@ -209,9 +240,10 @@ async function preview() {
   $("preview").disabled = true;
   say("Working out whether that fits and whether it is safe to save…");
   try {
-    await W.prepareFonts(run, newText);
-    const res = await W.editRun({ bytes: state.bytes, pageIndex: state.pageIndex, runIndex: state.selected, newText });
+    const pending = state.edits.concat([{ pageIndex: state.pageIndex, runIndex: state.selected, newText }]);
+    const res = await W.replay({ bytes: state.bytes, edits: pending, watermark: state.locked });
     state.result = res;
+    if (res.savedBytes) state.pending = pending;
 
     if (!res.savedBytes) {
       const label = res.outcome === "UNSUPPORTED" ? "This cannot be edited" : "This change was not made";
@@ -228,7 +260,8 @@ async function preview() {
     renderPageTo(page, $("previewcanvas"), wPt, hPt, state.scale);
     $("previewwrap").hidden = false;
     $("aftercap").hidden = false;
-    $("save").disabled = false;
+    $("keep").disabled = false;
+    renderActions();
     showDetails(res);
     say("Checked and ready. Look at the preview, then save it.", "ok");
   } catch (err) {
@@ -261,15 +294,105 @@ function showDetails(res) {
   $("details").hidden = false;
 }
 
-function save() {
-  if (!state.preview) return;
-  const blob = new Blob([state.preview], { type: "application/pdf" });
+/** Keep this change and carry on editing the same document. */
+async function keepEdit() {
+  if (!state.pending) return;
+  state.edits = state.pending;
+  state.pending = null;
+  state.working = state.preview;
+  say(`${state.edits.length} change${state.edits.length === 1 ? "" : "s"} so far. Keep editing, or save when you are done.`, "ok");
+  clearPreview();
+  await showPage(state.pageIndex);
+}
+
+/**
+ * Pay for a clean copy of this document, then build it.
+ *
+ * The clean file is made here, after the server has confirmed the payment -
+ * not unhidden. Until this runs, no un-watermarked version of the document has
+ * existed in this tab at all.
+ */
+async function unlockAndSave(button) {
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Opening PayPal…";
+  try {
+    const started = await fetch("/api/pay/create", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ product: "export", doc: state.docHash }),
+    });
+    const order = await started.json();
+    if (!started.ok) throw new Error(order.detail || "Could not start the payment");
+    const win = window.open(order.approve_url, "paypal", "width=500,height=700");
+    if (!win) throw new Error("Allow pop-ups to pay, then try again");
+    await new Promise((done) => {
+      const poll = setInterval(() => { if (win.closed) { clearInterval(poll); done(); } }, 800);
+    });
+    button.textContent = "Checking the payment…";
+    const headers = { "Content-Type": "application/json" };
+    if (token()) headers["X-PDF-Token"] = token();
+    const captured = await fetch("/api/pay/capture", {
+      method: "POST", headers,
+      body: JSON.stringify({ product: "export", doc: state.docHash, order_id: order.order_id }),
+    });
+    const result = await captured.json();
+    if (!captured.ok) throw new Error(result.detail || "That payment did not complete");
+    keepToken(result.token);
+    await refreshLock();
+    button.textContent = "Preparing your file…";
+    const clean = await W.replay({ bytes: state.bytes, edits: state.edits, watermark: false });
+    if (!clean.savedBytes) throw new Error(clean.reason || "The document could not be produced");
+    state.preview = clean.savedBytes;
+    download(clean.savedBytes);
+    say("Thank you — your document has been saved without the preview mark.", "ok");
+  } catch (err) {
+    say(`${err.message}. If you were charged, nothing has been lost: reopen the document and the export will already be paid for.`, "bad");
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+    renderActions();
+  }
+}
+
+function download(bytes) {
+  const blob = new Blob([bytes], { type: "application/pdf" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = state.name.replace(/\.pdf$/i, "") + "-edited.pdf";
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function save() {
+  if (!state.preview) return;
+  download(state.preview);
   say("Saved to your downloads. The document never left this tab.", "ok");
+}
+
+/** Show the right buttons for where the customer is: keep editing, or take it away. */
+function renderActions() {
+  const box = $("exportbox");
+  if (!box) return;
+  const edits = state.edits.length + (state.pending ? 1 : 0);
+  if (!edits) { box.hidden = true; return; }
+  box.hidden = false;
+  if (!state.locked) {
+    box.innerHTML = `<button id="saveclean">Save the PDF</button>`;
+    $("saveclean").addEventListener("click", () => {
+      if (state.pending) { state.edits = state.pending; state.pending = null; }
+      W.replay({ bytes: state.bytes, edits: state.edits, watermark: false }).then((r) => {
+        if (r.savedBytes) { download(r.savedBytes); say("Saved to your downloads. The document never left this tab.", "ok"); }
+      });
+    });
+    return;
+  }
+  box.innerHTML =
+    `<p class="hint">Your changes are shown with a preview mark across the page. ` +
+    `Saving the clean copy of this document costs ${esc(state.currency === "GBP" ? "£" : "")}${esc(state.price)}, ` +
+    `once — you can keep editing it as much as you like first.</p>` +
+    `<div class="btnrow"><button id="buyexport">Save clean copy &mdash; ` +
+    `${esc(state.currency === "GBP" ? "£" : "")}${esc(state.price)}</button></div>`;
+  $("buyexport").addEventListener("click", (e) => unlockAndSave(e.target));
 }
 
 // --------------------------------------------------------------------- wire ---
@@ -280,7 +403,7 @@ dz.addEventListener("dragleave", () => dz.classList.remove("over"));
 dz.addEventListener("drop", (e) => { e.preventDefault(); dz.classList.remove("over"); loadFile(e.dataTransfer.files[0]); });
 $("overlay").addEventListener("click", pick);
 $("preview").addEventListener("click", preview);
-$("save").addEventListener("click", save);
+$("keep").addEventListener("click", keepEdit);
 $("cancel").addEventListener("click", () => { state.selected = -1; $("editor").hidden = true; $("pickhint").hidden = false; clearPreview(); drawOverlay(); hideStatus(); });
 $("prev").addEventListener("click", () => showPage(state.pageIndex - 1));
 $("next").addEventListener("click", () => showPage(state.pageIndex + 1));
@@ -295,7 +418,17 @@ window.addEventListener("beforeunload", closeDocs);
 window.__edittext = {
   get runs() { return state.runs.map((r) => ({ text: r.text })); },
   get boxes() { return state.boxes; },
-  get lastSaved() { return state.result ? { action: state.result.action, outcome: state.result.outcome, integrity: state.result.integrity, newText: state.result.newText } : null; },
+  get edits() { return state.edits.length; },
+  get locked() { return state.locked; },
+  get docHash() { return state.docHash; },
+  keepEdit() { return keepEdit(); },
+  get lastSaved() {
+    // after an edit is kept, state.result is cleared; the edit itself is what
+    // was saved, so report that
+    const last = state.edits[state.edits.length - 1];
+    if (state.result) return { action: state.result.action, outcome: state.result.outcome, integrity: state.result.integrity, newText: state.result.newText };
+    return last ? { action: "kept", outcome: "EDITED", newText: last.newText } : null;
+  },
   selectRun(i) {
     if (i < 0 || i >= state.runs.length) throw new Error("no such run: " + i);
     state.selected = i;

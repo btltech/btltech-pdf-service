@@ -121,7 +121,7 @@ await selectRun(plain);
 check("clicking a line shows its current text", (await page.inputValue("#newtext")).includes("Amount due"));
 await typeAndPreview("Amount due: 1,975.00");
 let rows = await detailRows();
-check("the edit was accepted", await page.evaluate(() => !document.getElementById("save").disabled), rows["How it fits"] || (await statusText()).slice(0, 60));
+check("the edit was accepted", await page.evaluate(() => !document.getElementById("keep").disabled), rows["How it fits"] || (await statusText()).slice(0, 60));
 check("it was replaced in place", (rows["How it fits"] || "").includes("in place"), rows["How it fits"]);
 check("the integrity check passed", (rows["Integrity check"] || "").startsWith("ok"), rows["Integrity check"]);
 check("a preview of the result is shown", await page.evaluate(() => !document.getElementById("previewwrap").hidden));
@@ -139,7 +139,7 @@ await selectRun(cjk);
 await typeAndPreview("客户");
 let status = await statusText();
 check("Chinese text is refused", /Chinese/.test(status), status.slice(0, 80));
-check("nothing is offered for download after a refusal", await page.evaluate(() => document.getElementById("save").disabled));
+check("nothing is offered for download after a refusal", await page.evaluate(() => document.getElementById("keep").disabled));
 
 // A justified paragraph must be refused: re-setting one of its lines would leave
 // it short of the right margin while the rest of the paragraph stays flush.
@@ -154,7 +154,7 @@ check("the refusal does not quote a nonsense gap figure", !/0% wider|1% wider|-\
 const lastLine = (await runs()).findIndex((t) => t.includes("of the client, such consent"));
 await selectRun(lastLine);
 await typeAndPreview("of the client, such consent not to be unreasonably refused or delayed.");
-check("the last line of a justified paragraph stays editable", await page.evaluate(() => !document.getElementById("save").disabled), await statusText());
+check("the last line of a justified paragraph stays editable", await page.evaluate(() => !document.getElementById("keep").disabled), await statusText());
 
 await page.click("#next");
 await page.waitForFunction(() => document.getElementById("pagelabel").textContent.includes("2 of 2"), null, { timeout: 15000 });
@@ -168,9 +168,15 @@ await page.waitForFunction(() => document.getElementById("pagelabel").textConten
 const again = (await runs()).findIndex((t) => t.includes("Client"));
 await selectRun(again);
 await typeAndPreview("Client: Eastgate Holdings Limited");
-check("a short left-aligned line is NOT mistaken for justified", await page.evaluate(() => !document.getElementById("save").disabled), await statusText());
-check("an edit is ready to save", await page.evaluate(() => !document.getElementById("save").disabled), await statusText());
-const [download] = await Promise.all([page.waitForEvent("download"), page.click("#save")]);
+check("a short left-aligned line is NOT mistaken for justified", await page.evaluate(() => !document.getElementById("keep").disabled), await statusText());
+check("an edit is ready to keep", await page.evaluate(() => !document.getElementById("keep").disabled), await statusText());
+// With no payment configured the export is free, so the clean copy saves directly.
+await page.click("#keep");
+await page.waitForFunction(() => document.querySelector("#exportbox button"), null, { timeout: 20000 });
+const [download] = await Promise.all([
+  page.waitForEvent("download"),
+  page.click("#exportbox button"),
+]);
 await download.saveAs(OUTPUT);
 check("a PDF was downloaded", fs.statSync(OUTPUT).size > 1000, fs.statSync(OUTPUT).size + " bytes");
 check("the download is named after the source", download.suggestedFilename() === "edittext-edited.pdf", download.suggestedFilename());

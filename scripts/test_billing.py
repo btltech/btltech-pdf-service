@@ -255,8 +255,16 @@ class FakePayPal:
 
     @staticmethod
     async def capture_order(order_id):
-        # a payment of an amount this server does not sell
-        amount = "0.01" if order_id == "ORDER-WRONG-PRICE" else "2.00"
+        # what PayPal reports having actually taken, which is the only figure
+        # the server is allowed to act on
+        if order_id == "ORDER-WRONG-PRICE":
+            amount = "0.01"                       # an amount nothing is sold for
+        elif order_id == "EXP-WRONG-PRICE":
+            amount = "2.00"                       # a pack's price, not an export's
+        elif order_id.startswith("EXP-"):
+            amount = "1.00"                       # the export price
+        else:
+            amount = "2.00"                       # the 10-conversion pack
         return real_paypal.Capture(order_id, "COMPLETED", amount, "GBP")
 
 the_app.paypal = FakePayPal
@@ -310,6 +318,67 @@ check("and the reason is in the body", "PayPal" in r.json().get("detail", ""), s
 r = client.post("/api/pay/capture", json={"order_id": "ORDER-X"})
 check("a failure to capture stays a 4xx too", 400 <= r.status_code < 500, str(r.status_code))
 the_app.paypal = FakePayPal
+
+print("\n=== paying for one finished document ===")
+DOC = "a" * 64          # the browser's hash of a file; the file itself never comes here
+store.exports = set()
+billing.export_unlocked = lambda token, doc: (token, doc) in store.exports
+def _grant_export(order_id, token, doc, amount, currency):
+    token = token or billing.new_token()
+    if store.grant(order_id, token, 0):
+        store.exports.add((token, doc))
+    return token
+billing.grant_export = _grant_export
+
+check("an export costs the configured price, not a hard-coded one",
+      billing.export_price().price == "1.00", billing.export_price().price)
+config.EXPORT_PRICE = "2.50"
+check("changing the setting changes the price", billing.export_price().price == "2.50")
+config.EXPORT_PRICE = "1.00"
+
+r = client.get("/api/export/status", params={"doc": DOC})
+check("a document nobody paid for is locked", r.json().get("unlocked") is False, str(r.json())[:80])
+
+r = client.post("/api/pay/create", json={"product": "export", "doc": DOC})
+check("buying a document export starts a payment", r.status_code == 200, str(r.status_code))
+check("at the export price, set by this server", FakePayPal.last_amount == "1.00", str(FakePayPal.last_amount))
+
+r = client.post("/api/pay/create", json={"product": "export"})
+check("an export with no document named is refused", r.status_code == 400, str(r.status_code))
+
+r = client.post("/api/pay/capture", json={"product": "export", "doc": DOC, "order_id": "EXP-1"})
+check("a completed payment unlocks that document", r.status_code == 200 and r.json().get("unlocked"),
+      str(r.json())[:80])
+tok = r.json().get("token", "")
+r = client.get("/api/export/status", params={"doc": DOC}, headers={"X-PDF-Token": tok})
+check("...and it stays unlocked for that token", r.json().get("unlocked") is True, str(r.json())[:80])
+r = client.get("/api/export/status", params={"doc": "b" * 64}, headers={"X-PDF-Token": tok})
+check("paying for one document does not unlock another", r.json().get("unlocked") is False)
+r = client.get("/api/export/status", params={"doc": DOC})
+check("and not for somebody else's browser", r.json().get("unlocked") is False)
+
+r = client.post("/api/pay/capture", json={"product": "export", "doc": DOC, "order_id": "EXP-WRONG-PRICE"})
+check("a payment of the wrong amount unlocks nothing", r.status_code == 409, str(r.status_code))
+
+print("\n=== paid, but the record could not be written ===")
+# The worst moment in any payment flow: the money has gone and the database is
+# unreachable. What must never happen is the customer losing both.
+_real_grant_export, _real_grant = billing.grant_export, billing.grant
+def _broken(*a, **k):
+    raise RuntimeError("database is unreachable")
+billing.grant_export = _broken
+r = client.post("/api/pay/capture", json={"product": "export", "doc": "c" * 64, "order_id": "EXP-2"})
+check("a paid export is still handed over when it cannot be recorded",
+      r.status_code == 200 and r.json().get("unlocked") is True, str(r.json())[:80])
+check("...and it says the record is missing, so it can be put right",
+      r.json().get("recorded") is False, str(r.json().get("recorded")))
+billing.grant_export = _real_grant_export
+
+billing.grant = _broken
+r = client.post("/api/pay/capture", json={"order_id": "ORDER-3"})
+check("a paid pack that cannot be recorded fails with the reference to quote",
+      r.status_code == 409 and "ORDER-3" in r.json().get("detail", ""), str(r.json())[:100])
+billing.grant = _real_grant
 
 print("\n=== who gets counted ===")
 

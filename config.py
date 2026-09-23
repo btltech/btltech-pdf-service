@@ -96,6 +96,12 @@ CURRENCY_SYMBOL = os.environ.get("PDF_CURRENCY_SYMBOL", "£").strip()
 # defeat the point of hashing at all.
 BILLING_SALT = os.environ.get("PDF_BILLING_SALT", "").strip()
 
+# What a clean, un-watermarked export of an edited document costs. The customer
+# may make as many edits as they like and see the watermarked result first; this
+# is the price of taking the finished file away. Configurable, because the right
+# number comes from real usage.
+EXPORT_PRICE = os.environ.get("PDF_EXPORT_PRICE", "1.00").strip()
+
 PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "").strip()
 PAYPAL_SECRET = os.environ.get("PAYPAL_SECRET", "").strip()
 PAYPAL_ENV = os.environ.get("PAYPAL_ENV", "sandbox").strip().lower()

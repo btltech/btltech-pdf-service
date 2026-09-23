@@ -291,21 +291,47 @@ async def allowance(request: Request, x_pdf_token: Optional[str] = Header(None))
     }
 
 
+@app.get("/api/export/status")
+async def export_status(doc: str = Query("", max_length=128),
+                        x_pdf_token: Optional[str] = Header(None)) -> dict:
+    """Has this finished document been paid for, and what would it cost?
+
+    `doc` is a hash the browser worked out from the file. The file itself is
+    never sent here, so this can answer the question without ever seeing the
+    document it is answering about.
+    """
+    price = billing.export_price()
+    if not billing.enabled() or not paypal.configured():
+        # Nothing to sell and no way to pay: the export is simply free.
+        return {"billing": False, "unlocked": True}
+    try:
+        unlocked = billing.export_unlocked(x_pdf_token, doc)
+    except Exception as exc:                                   # noqa: BLE001
+        log.warning("could not check an export entitlement, allowing it: %s", exc)
+        return {"billing": False, "unlocked": True}
+    return {"billing": True, "unlocked": unlocked, "price": price.price, "currency": CURRENCY}
+
+
 @app.post("/api/pay/create")
 async def pay_create(payload: dict = Body(...)) -> dict:
     """Start a PayPal payment for one of the configured packs."""
     if not billing.enabled() or not paypal.configured():
         raise HTTPException(503, "Payments are not available on this server")
-    wanted = payload.get("credits")
-    pack = next((p for p in billing.packs() if p.credits == wanted), None)
-    if pack is None:
-        # The price is never taken from the browser: only a pack this server
-        # offers can be bought, at the price this server set for it.
-        raise HTTPException(400, "That is not one of the packs on offer")
+    # Two things are on sale: conversion packs, and a clean copy of one edited
+    # document. The price of each comes from this server, never from the browser.
+    if payload.get("product") == "export":
+        doc = str(payload.get("doc") or "").strip()
+        if not doc:
+            raise HTTPException(400, "No document was named")
+        pack, description = billing.export_price(), "Clean copy of an edited PDF"
+    else:
+        wanted = payload.get("credits")
+        pack = next((p for p in billing.packs() if p.credits == wanted), None)
+        if pack is None:
+            raise HTTPException(400, "That is not one of the packs on offer")
+        description = f"{pack.credits} PDF conversions"
     try:
-        order_id, approve_url = await paypal.create_order(
-            pack.price, CURRENCY, f"{pack.credits} PDF conversions"
-        )
+        order_id, approve_url = await paypal.create_order(pack.price, CURRENCY, description)
     except paypal.PayPalError as exc:
         # 409 rather than 502 on purpose: a CDN replaces an origin 5xx with its
         # own error page, which would throw away the explanation the customer
@@ -329,15 +355,51 @@ async def pay_capture(payload: dict = Body(...), x_pdf_token: Optional[str] = He
         raise HTTPException(409, str(exc)) from exc        # see the note above
     if not result.completed:
         raise HTTPException(402, "PayPal has not completed that payment")
-    # Match what was actually paid to a pack. A payment for an amount this
-    # server does not sell buys nothing, whatever the browser asked for.
-    pack = next((p for p in billing.packs()
-                 if p.price == result.amount and result.currency == CURRENCY), None)
+    if result.currency != CURRENCY:
+        raise HTTPException(409, "That payment was in a currency this service does not sell in")
+
+    # A clean copy of one finished document.
+    doc = str(payload.get("doc") or "").strip()
+    if payload.get("product") == "export" and doc:
+        if result.amount != billing.export_price().price:
+            log.warning("an export payment of %s did not match the price", result.amount)
+            raise HTTPException(409, "That payment does not match the price of an export")
+        try:
+            token = billing.grant_export(order_id, x_pdf_token, doc, result.amount, result.currency)
+        except Exception as exc:                               # noqa: BLE001
+            # PayPal has taken the money and we could not write it down. The
+            # customer must still get what they paid for, so this returns
+            # success and the browser produces their document; the loud log is
+            # what makes the missing record recoverable afterwards.
+            log.error(
+                "PAID BUT NOT RECORDED - order %s, %s %s, document %s: %s",
+                order_id, result.amount, result.currency, doc[:16], exc,
+            )
+            return {"token": x_pdf_token or "", "unlocked": True, "doc": doc, "recorded": False}
+        return {"token": token, "unlocked": True, "doc": doc, "recorded": True}
+
+    # Otherwise a pack of conversions. A payment for an amount this server does
+    # not sell buys nothing, whatever the browser asked for.
+    pack = next((p for p in billing.packs() if p.price == result.amount), None)
     if pack is None:
         log.warning("a payment of %s %s matched no pack on offer", result.amount, result.currency)
         raise HTTPException(409, "That payment does not match anything on sale here")
-    token = billing.grant(order_id, x_pdf_token, pack.credits, result.amount, result.currency)
-    state = billing.allowance("", token)
+    try:
+        token = billing.grant(order_id, x_pdf_token, pack.credits, result.amount, result.currency)
+        state = billing.allowance("", token)
+    except Exception as exc:                                   # noqa: BLE001
+        # Same again: paid, not recorded. Conversions cannot be handed over
+        # without the record, so this says so plainly and gives the customer the
+        # reference they will need, rather than a blank failure.
+        log.error(
+            "PAID BUT NOT RECORDED - order %s, %s %s, %s conversions: %s",
+            order_id, result.amount, result.currency, pack.credits, exc,
+        )
+        raise HTTPException(
+            409,
+            f"Your payment went through but could not be recorded. Nothing is lost - "
+            f"quote reference {order_id} and it will be put right.",
+        ) from exc
     return {"token": token, "credits": state.credits, "added": pack.credits}
 
 

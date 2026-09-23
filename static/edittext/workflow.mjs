@@ -27,6 +27,7 @@
 import * as E from "./engine.mjs";
 import { checkSaved } from "./integrity.mjs";
 import { ensureFonts, fontFilesFor } from "./fontset.mjs";
+import { stamp } from "./watermark.mjs";
 
 const P = E.P;
 
@@ -68,7 +69,7 @@ export async function prepareFonts(run, newText) {
  * `bytes` is the ORIGINAL file every time: each attempt starts from it, so a
  * rejected plan can never leave a half-applied edit behind.
  */
-export async function editRun({ bytes, pageIndex = 0, runIndex, newText }) {
+export async function editRun({ bytes, pageIndex = 0, runIndex, newText, watermark = false }) {
   const r = {};
   const fresh = () => {
     const o = E.openDoc(bytes);
@@ -176,6 +177,9 @@ export async function editRun({ bytes, pageIndex = 0, runIndex, newText }) {
   }
 
   // ---- the download gate ----------------------------------------------------
+  // The mark goes on BEFORE the save, so a locked export never produces a clean
+  // file at all. Unlocking replays the edits and saves once without this.
+  if (watermark) stamp(target);
   const savedBytes = E.saveDoc(target);
   const origPages = P.FPDF_GetPageCount(doc);
   const res = await checkSaved(bytes, savedBytes, origPages);
@@ -189,6 +193,35 @@ export async function editRun({ bytes, pageIndex = 0, runIndex, newText }) {
   r.bytes = savedBytes.length;
   r.savedBytes = savedBytes;
   return r;
+}
+
+/**
+ * Apply a list of edits in order, starting from the original file.
+ *
+ * Replaying from the original is what lets the clean copy be withheld: the
+ * finished document is built once, at the moment it is paid for, rather than
+ * being kept in the page while a button stays disabled. Because every replay
+ * starts from the same bytes and applies the same edits in the same order, the
+ * intermediate documents are identical each time, so the run each edit refers
+ * to is still the run it referred to when the customer chose it.
+ */
+export async function replay({ bytes, edits, watermark = false }) {
+  let current = bytes, last = null;
+  for (const [i, edit] of edits.entries()) {
+    const open = openAndAnalyse(current, edit.pageIndex);
+    const run = open.runs && open.runs[edit.runIndex];
+    if (!run) return { outcome: "NOT FOUND", reason: `edit ${i + 1} no longer matches the document`, failedAt: i };
+    await prepareFonts(run, edit.newText);
+    // only the final save carries the mark; the ones in between are working copies
+    const isLast = i === edits.length - 1;
+    last = await editRun({
+      bytes: current, pageIndex: edit.pageIndex, runIndex: edit.runIndex,
+      newText: edit.newText, watermark: watermark && isLast,
+    });
+    if (!last.savedBytes) return { ...last, failedAt: i };
+    current = last.savedBytes;
+  }
+  return last || { outcome: "NOT FOUND", reason: "there were no edits to apply" };
 }
 
 /** AcroForm field values are a different thing entirely: set the value, not the page. */

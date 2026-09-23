@@ -66,7 +66,8 @@ if new_text:
     if old:
         check("the old wording is gone", squash(old) not in squash(after_text), repr(old[:40]))
 else:
-    check("the browser suite recorded what it saved", False, "no -expected.json")
+    check("the browser suite recorded what it saved", False,
+          "no newText in " + os.path.basename(EXPECTED) if os.path.exists(EXPECTED) else "no " + os.path.basename(EXPECTED))
 
 # Everything the edit did not touch must still be there, in the same place.
 def lines(p):
