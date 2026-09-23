@@ -27,7 +27,15 @@ CONVERT_TIMEOUT_S = max(10, int(os.environ.get("PDF2WORD_CONVERT_TIMEOUT_S", "30
 # the files actually running; these two settings add a link to the public
 # repository and the exact revision, and are optional.
 SOURCE_REPO_URL = os.environ.get("PDF_SOURCE_REPO_URL", "").strip()
-SOURCE_VERSION = os.environ.get("PDF_SOURCE_VERSION", "").strip()
+# Railway sets RAILWAY_GIT_COMMIT_SHA when it deploys from a connected
+# repository. Falling back to it means the version named on /source is the one
+# actually running, rather than whatever was last typed in by hand - a source
+# offer that points at the wrong commit is worse than one that points at none.
+SOURCE_VERSION = (
+    os.environ.get("PDF_SOURCE_VERSION")
+    or os.environ.get("RAILWAY_GIT_COMMIT_SHA")
+    or ""
+).strip()
 
 # An optional link where people can support the service (a PayPal.me address, a
 # PayPal donate link, or anything else). When it is empty - the default - no
