@@ -289,6 +289,28 @@ check("capturing the same order twice adds nothing more",
 r = client.post("/api/pay/capture", json={})
 check("a capture with no order is refused", r.status_code == 400, str(r.status_code))
 
+
+# A CDN swallows an origin 5xx and serves its own page, taking the explanation
+# with it, so every payment failure a customer can act on must be a 4xx.
+class FailingPayPal(FakePayPal):
+    @staticmethod
+    async def create_order(amount, currency, description):
+        raise real_paypal.PayPalError("PayPal would not start the payment")
+
+    @staticmethod
+    async def capture_order(order_id):
+        raise real_paypal.PayPalError("PayPal did not complete the payment")
+
+
+the_app.paypal = FailingPayPal
+r = client.post("/api/pay/create", json={"credits": 10})
+check("a failure to start a payment stays a 4xx, so the reason survives a CDN",
+      400 <= r.status_code < 500, str(r.status_code))
+check("and the reason is in the body", "PayPal" in r.json().get("detail", ""), str(r.json())[:70])
+r = client.post("/api/pay/capture", json={"order_id": "ORDER-X"})
+check("a failure to capture stays a 4xx too", 400 <= r.status_code < 500, str(r.status_code))
+the_app.paypal = FakePayPal
+
 print("\n=== who gets counted ===")
 
 

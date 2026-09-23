@@ -307,7 +307,10 @@ async def pay_create(payload: dict = Body(...)) -> dict:
             pack.price, CURRENCY, f"{pack.credits} PDF conversions"
         )
     except paypal.PayPalError as exc:
-        raise HTTPException(502, str(exc)) from exc
+        # 409 rather than 502 on purpose: a CDN replaces an origin 5xx with its
+        # own error page, which would throw away the explanation the customer
+        # needs. This is something they can act on, not a server fault.
+        raise HTTPException(409, str(exc)) from exc
     return {"order_id": order_id, "approve_url": approve_url,
             "credits": pack.credits, "price": pack.price, "currency": CURRENCY}
 
@@ -323,7 +326,7 @@ async def pay_capture(payload: dict = Body(...), x_pdf_token: Optional[str] = He
     try:
         result = await paypal.capture_order(order_id)
     except paypal.PayPalError as exc:
-        raise HTTPException(502, str(exc)) from exc
+        raise HTTPException(409, str(exc)) from exc        # see the note above
     if not result.completed:
         raise HTTPException(402, "PayPal has not completed that payment")
     # Match what was actually paid to a pack. A payment for an amount this
