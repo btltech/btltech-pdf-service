@@ -138,11 +138,12 @@ Click a line, change the words, save. It runs entirely in the browser on PDFium
 compiled to WebAssembly: the document is read from a file input and never sent
 anywhere, which is also asserted by the browser suite watching the network.
 
-The engine came from a long feasibility study and was frozen as **FROZEN8** once it
-produced no bad output across seven corpora of real-world PDFs. What ships here is
-that frozen engine with its file access changed and nothing else;
+The engine came from a long feasibility study and is frozen: **FROZEN9** is the
+reference the deployed code is measured against, after a justification fix
+superseded the original FROZEN8 freeze (both are described below). What ships here
+is that frozen engine with its file access changed and nothing else;
 `static/edittext/PORTING.md` lists every difference, and
-`scripts/regression_edittext.mjs` proves the point by reproducing all 128 saved
+`scripts/regression_edittext.mjs` proves the point by reproducing all 134 saved
 outputs from the frozen reference.
 
 ### What it does
@@ -293,7 +294,7 @@ for the bundled browser libraries are in `LICENSES/`.
 | `PDF2WORD_PORT` | `8000` | Port to listen on |
 | `PDF2WORD_MAX_MB` | `50` | Max upload size in MB |
 | `PDF2WORD_CONVERT_WORKERS` | `2` | PDF → Word conversions that run at once (each ~150–250 MB) |
-| `PDF_SUPPORT_URL` | *(unset)* | An optional "support this tool" link in the footer. Nothing is gated behind it, and it is a plain link: a payment provider's script would contradict what these pages promise about files staying in the browser |
+| `PDF_SUPPORT_URL` | *(unset)* | Optional "support this tool" link in the footer. Unset in production, and how this service is funded has not been decided. If it is ever used it stays a plain link with nothing gated behind it: a payment provider's script would contradict what these pages promise about files staying in the browser |
 | `PDF_SUPPORT_LABEL` | `Support this tool` | The wording of that link |
 | `PDF2WORD_CONVERT_TIMEOUT_S` | `300` | Stop a conversion that runs longer than this |
 | `PDF_SOURCE_REPO_URL` | *(empty)* | Public repository URL shown on `/source` |
@@ -316,7 +317,7 @@ btltech-pdf-service/
 │   ├── edittext.html          # Edit existing text UI
 │   ├── tools.html             # Page tools UI
 │   ├── edittext/              # The frozen V1 text-editing engine
-│   │   ├── engine.mjs         #   FROZEN8, file access aside (see PORTING.md)
+│   │   ├── engine.mjs         #   FROZEN9, file access aside (see PORTING.md)
 │   │   ├── workflow.mjs       #   every gate, shared by the browser and the tests
 │   │   ├── integrity.mjs      #   the download gate
 │   │   ├── subset.mjs         #   HarfBuzz font subsetting

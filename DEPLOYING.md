@@ -17,8 +17,9 @@ setting or a page:
       the file on the server (converted in a temporary folder, deleted when the
       download finishes), while `/edit` and `/edit-text` never upload anything at
       all. `PRIVACY.md` in this repository is the draft.
-- [ ] Decide whether `PDF_SUPPORT_URL` is set (see below). It is optional and
-      nothing is gated behind it.
+- [ ] **Leave `PDF_SUPPORT_URL` unset until the commercial approach is decided.**
+      It is only the mechanism for a voluntary link; it is not a decision about
+      how the service is funded, and that decision is still open.
 
 ## Not a deployment blocker
 
@@ -29,10 +30,13 @@ it as business sign-off running in parallel, not as a gate on the release.
 
 Charging for the service is likewise not an AGPL question. The licence obliges an
 offer of source; it does not require the service to be free, and BTLTECH could
-charge for access or convenience while complying with it. The reason the text
-editor is free is narrower and practical: it executes in the customer's browser,
-so a payment check in the page can be bypassed by anyone who looks - the published
-source makes that easier, but it is not what would forbid charging.
+charge for access or convenience while complying with it.
+
+What has been established is narrower: a charge enforced by a check inside the
+text editor would not hold, because that editor runs in the customer's browser and
+anyone who looks can lift it. That rules out one implementation, not the idea of
+charging. Gating something the server performs and can withhold - a conversion
+quota, larger uploads, batch work - is still open, and no decision has been made.
 
 ## Settings
 
@@ -42,7 +46,7 @@ source makes that easier, but it is not what would forbid charging.
 | `PDF_SOURCE_VERSION` | the deployed commit SHA | tells a user exactly which source they are running |
 | `PDF2WORD_MAX_MB` | `50` (default) | upload ceiling |
 | `PDF2WORD_CONVERT_WORKERS` | `2` (default) | caps concurrent conversions, and so peak memory |
-| `PDF_SUPPORT_URL` | a PayPal.me or donate link, or leave unset | renders an optional "support this tool" link in the footer |
+| `PDF_SUPPORT_URL` | leave unset for now | would render a voluntary "support this tool" link; unset until the commercial approach is decided |
 | `PDF_SUPPORT_LABEL` | e.g. `Support this tool` | the link's wording |
 
 `PORT` is set by Railway and picked up automatically.

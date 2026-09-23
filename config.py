@@ -38,10 +38,15 @@ SOURCE_VERSION = (
 ).strip()
 
 # An optional link where people can support the service (a PayPal.me address, a
-# PayPal donate link, or anything else). When it is empty - the default - no
-# support link is rendered anywhere. Nothing is ever gated behind it: the tools
-# are free, the source is published, and a paywall on code that runs in the
-# customer's own browser would be theatre rather than a lock.
+# PayPal donate link, or anything else). When it is empty - the default, and what
+# production runs - no support link is rendered anywhere.
+#
+# How this service is funded is not settled. This variable is not that decision;
+# it is only the mechanism for a voluntary link, and nothing is gated behind it.
+# What is settled is narrower: a charge enforced by a check inside the text
+# editor would not hold, because that editor runs in the customer's own browser.
+# Charging for something the server performs and can withhold is a different
+# question and remains open.
 #
 # It is a plain link on purpose. Embedding a payment provider's JavaScript would
 # put third-party code on pages that promise the document never leaves the tab,
