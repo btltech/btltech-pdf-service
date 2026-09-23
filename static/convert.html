@@ -156,8 +156,16 @@
             blob.text().then(function (text) {
               var detail = "";
               try { detail = JSON.parse(text).detail || ""; } catch (err) {}
-              fail(detail || "Conversion failed (HTTP " + xhr.status + ")");
-              if (xhr.status === 402) refreshAllowance();
+              if (xhr.status === 402) {
+                // The panel above already explains and offers the packs; saying
+                // it again here in different words reads like two systems
+                // talking past each other.
+                item.needsPayment = true;
+                fail("Not converted \u2014 no conversions left. See above.");
+                refreshAllowance();
+              } else {
+                fail(detail || "Conversion failed (HTTP " + xhr.status + ")");
+              }
             }, function () { fail("Conversion failed (HTTP " + xhr.status + ")"); });
           } else {
             fail("Conversion failed (HTTP " + xhr.status + ")");
@@ -283,7 +291,8 @@
         if (!res.ok) { renderBilling(res.d.detail || "That payment did not complete"); return; }
         storeToken(res.d.token);
         refreshAllowance().then(function () {
-          renderBilling("Thank you - " + res.d.added + " conversions added.");
+          renderBilling("Thank you \u2014 " + res.d.added + " conversions added.");
+          retryAfterPayment();          // pick up whatever was waiting to convert
         });
       })
       .catch(function () {
@@ -295,6 +304,19 @@
   }
 
   refreshAllowance();
+
+  function retry(item) {
+    item.status = "working";
+    item.progress = 0;
+    item.error = "";
+    item.needsPayment = false;
+    render();
+    convert(item);
+  }
+
+  function retryAfterPayment() {
+    items.filter(function (i) { return i.needsPayment; }).forEach(retry);
+  }
 
   function download(item) {
     if (!item.url) return;
@@ -343,10 +365,17 @@
         btn.addEventListener("click", function () { download(item); });
         li.appendChild(btn);
       } else if (item.status === "error") {
-        var err = document.createElement("div");
-        err.className = "status error";
-        err.textContent = item.error || "Failed";
-        li.appendChild(err);
+        var wrap = document.createElement("div");
+        wrap.className = "status error";
+        wrap.textContent = item.error || "Failed";
+        li.appendChild(wrap);
+        // Without this the file is stranded: someone who buys conversions to
+        // convert THIS document would otherwise have to go and find it again.
+        var again = document.createElement("button");
+        again.className = "dl";
+        again.textContent = "Try again";
+        again.addEventListener("click", function () { retry(item); });
+        li.appendChild(again);
       } else {
         var wait = document.createElement("div");
         wait.className = "status";

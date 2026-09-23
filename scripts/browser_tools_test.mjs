@@ -120,6 +120,34 @@ check(
   docxBytes.length + " bytes"
 );
 
+// A refused conversion must not strand the file. Someone who buys conversions to
+// convert THIS document should not have to go and find it again, so the failed
+// item keeps a way to run it. Simulated here by making the next conversion fail,
+// which is what a payment refusal looks like to this page.
+await page.route("**/api/convert*", (route) =>
+  route.fulfill({ status: 402, contentType: "application/json",
+                  body: JSON.stringify({ detail: "You have used today's free conversion." }) }));
+await page.setInputFiles("#fileInput", SOURCE);
+await page.waitForFunction(() => document.querySelectorAll("#queue .status.error").length > 0,
+  null, { timeout: 20000 });
+const errText = await page.textContent("#queue .status.error");
+check("a refused conversion says so without repeating the panel",
+  /not converted/i.test(errText || ""), (errText || "").slice(0, 60));
+check("a refused file keeps a way to convert it",
+  (await page.locator("#queue button", { hasText: "Try again" }).count()) > 0);
+
+await page.unroute("**/api/convert*");
+await page.locator("#queue button", { hasText: "Try again" }).first().click();
+// With more than one file queued the page does not download automatically, so
+// the retried file finishes with its own Download button, same as any other.
+await page.waitForFunction(
+  () => document.querySelectorAll("#queue button.dl").length >= 2, null, { timeout: 60000 });
+const retried = page.waitForEvent("download", { timeout: 30000 });
+await page.locator("#queue button", { hasText: "Download .docx" }).last().click();
+const again = await retried;
+check("trying again converts the same file, with nothing to re-add",
+  again.suggestedFilename().endsWith(".docx"), again.suggestedFilename());
+
 if (noise.length) console.log("  page errors:", noise.join(" | "));
 await browser.close();
 
