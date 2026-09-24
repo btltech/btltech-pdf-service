@@ -258,6 +258,35 @@ check("both changes are in the document, not only on screen",
       typeof bothInFile === "string" && bothInFile.includes("NW-9001") && bothInFile.includes("2,500.00"),
       typeof bothInFile === "string" ? "NW-9001:" + bothInFile.includes("NW-9001") + " 2,500.00:" + bothInFile.includes("2,500.00") : bothInFile);
 
+console.log("\n=== turning the page keeps the work ===");
+// The result pane was cleared by showPage and put back only by the paths that
+// remembered to. Turning the page was not one of them, so a customer editing a
+// long document watched everything disappear at page 2.
+await page.click("#next");
+await page.waitForFunction(() => document.getElementById("pagelabel").textContent.includes("2 of 2"), null, { timeout: 15000 });
+check("changing page does not blank the kept work", await page.evaluate(() => !document.getElementById("previewwrap").hidden));
+check("and the count is still right", /2 changes so far/i.test(await page.$eval("#aftercap", (e) => e.textContent)),
+      await page.$eval("#aftercap", (e) => e.textContent));
+await page.click("#prev");
+await page.waitForFunction(() => document.getElementById("pagelabel").textContent.includes("1 of 2"), null, { timeout: 15000 });
+
+console.log("\n=== re-opening a line you already changed ===");
+// It used to offer the wording from the FILE, so a line you had just edited
+// showed its old words back and looked as though nothing had happened.
+const reopened = (await runs()).findIndex((t) => t.includes("Reference"));
+await selectRun(reopened);
+check("the box starts from your wording, not the original",
+      /NW-9001/.test(await page.inputValue("#newtext")), JSON.stringify(await page.inputValue("#newtext")));
+check("and the panel says why", await page.evaluate(() => !document.getElementById("editnote").hidden));
+check("the original is still shown beside it",
+      /NW-2291/.test(await page.$eval("#original", (e) => e.textContent)));
+await page.click("#cancel");
+const untouched = (await runs()).findIndex((t) => t.includes("supplier shall provide"));
+await selectRun(untouched);
+check("a line never edited offers the original, with no note",
+      await page.evaluate(() => document.getElementById("editnote").hidden));
+await page.click("#cancel");
+
 console.log("\n=== the two-step edit is explained, not just enforced ===");
 check("the hint tells you Preview comes first",
       /Press Preview first/i.test(await page.$eval("#keephint", (e) => e.textContent)));

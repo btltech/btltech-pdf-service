@@ -199,6 +199,7 @@ async function showPage(index) {
   if (messages.length) say(messages.join("<br>"), open.unsupported ? "bad" : "warn"); else hideStatus();
   $("editor").hidden = true;
   $("pickhint").hidden = false;
+  restoreKept();
   renderActions();
 }
 
@@ -235,7 +236,13 @@ function selectRun(i) {
   $("editor").hidden = false;
   $("pickhint").hidden = true;
   $("original").textContent = run.text;
-  $("newtext").value = run.text;
+  // If this line has already been changed, the box starts from the wording the
+  // customer chose, not the wording in the file. Starting from the original
+  // meant re-opening a line you had just edited showed the old words back, as
+  // though the change had not happened.
+  const prior = state.edits.filter((e) => e.pageIndex === state.pageIndex && e.runIndex === i).pop();
+  $("newtext").value = prior ? prior.newText : run.text;
+  $("editnote").hidden = !prior;
   clearPreview();
   restoreKept();
   hideStatus();
@@ -380,7 +387,6 @@ async function keepEdit() {
   // result off the screen and the customer saw their work vanish - so the kept
   // version goes straight back up beside it.
   await showPage(state.pageIndex);
-  restoreKept();
   say(`${n} change${plural(n)} kept, and the panel on the right shows all of them together. `
       + "Click another line to change something else, or save when you are done.", "ok");
 }
