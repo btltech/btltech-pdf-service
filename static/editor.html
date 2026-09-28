@@ -5,8 +5,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Edit PDF &mdash; BTLTech</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%93%84</text></svg>" />
+<title>Edit PDF Online: Sign, Annotate and Reorder Pages | BTLTech</title>
+<link rel="icon" type="image/png" href="/static/brand/mark.png" />
+<link rel="apple-touch-icon" href="/static/brand/mark.png" />
 <meta name="description" content="Add text, draw, highlight, sign and reorder pages in a PDF. Everything happens in your browser and nothing is uploaded." />
 <link rel="canonical" href="https://pdf.btltech.co.uk/edit" />
 <meta property="og:title" content="Edit PDF — BTLTech" />
@@ -14,6 +15,11 @@
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://pdf.btltech.co.uk/edit" />
 <meta property="og:site_name" content="BTLTech PDF Tools" />
+<meta property="og:image" content="https://pdf.btltech.co.uk/static/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="BTLTech PDF tools: edit the text in a PDF and keep its font and layout" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="stylesheet" href="/static/app.css" />
 <style>
   main.editor { width:100%; max-width:1400px; display:grid; grid-template-columns:270px minmax(0,1fr); gap:16px; align-items:start; }
@@ -47,7 +53,7 @@
 <body>
 
 <nav class="top">
-  <span class="logo">BTLTech</span>
+  <a class="logo" href="/"><img src="/static/brand/mark-on-dark.png" alt="" width="29" height="26" />BTLTech</a>
   <a href="/">Toolkit</a>
   <a href="/convert">PDF to Word</a>
   <a href="/edit" class="active">Edit PDF</a>
@@ -116,6 +122,35 @@
     <div id="pages"></div>
   </section>
 </main>
+
+<section class="more" aria-labelledby="faq">
+  <h2 id="faq">Questions</h2>
+  <details class="faq">
+    <summary>Is my document uploaded?</summary>
+    <p>No. The PDF is opened, marked up and saved by this browser tab. Nothing is sent anywhere, and it is free, with no
+    account.</p>
+  </details>
+  <details class="faq">
+    <summary>How do I sign a PDF?</summary>
+    <p>Choose <strong>Draw / sign</strong> and write your signature with a mouse, trackpad or finger, or choose
+    <strong>Stamp image</strong> to place a picture of a signature you already have. Then save the PDF.</p>
+  </details>
+  <details class="faq">
+    <summary>Can I change the words that are already in the PDF?</summary>
+    <p>Not here &mdash; this editor adds things on top of the page. To change text that is already printed in the PDF and
+    keep its font, use <a href="/edit-text">Edit existing text</a>.</p>
+  </details>
+  <details class="faq">
+    <summary>Can I reorder or remove pages?</summary>
+    <p>Yes. The page panel lets you move pages earlier or later and leave pages out; the rest keep their order when you
+    save. To merge several PDFs or split one apart, use the <a href="/tools">page tools</a>.</p>
+  </details>
+  <details class="faq">
+    <summary>Is there a size limit?</summary>
+    <p>The editor shows the first 40 pages of a very long document, to keep the page responsive. Text you add is written in
+    Helvetica.</p>
+  </details>
+</section>
 
 <footer class="foot">
   Marking up a document happens entirely in your browser using pdf.js and pdf-lib, both served from this site.

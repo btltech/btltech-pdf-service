@@ -5,21 +5,27 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>PDF to Word &mdash; BTLTech</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%F0%9F%93%84</text></svg>" />
+<title>PDF to Word Converter That Keeps Tables and Layout | BTLTech</title>
+<link rel="icon" type="image/png" href="/static/brand/mark.png" />
+<link rel="apple-touch-icon" href="/static/brand/mark.png" />
 <meta name="description" content="Convert a PDF to an editable Word document, keeping headings, tables, images and formatting. One free conversion a day, no account needed." />
 <link rel="canonical" href="https://pdf.btltech.co.uk/convert" />
-<meta property="og:title" content="PDF to Word — BTLTech" />
+<meta property="og:title" content="Convert PDF to Word, keeping tables and layout — BTLTech" />
 <meta property="og:description" content="Convert a PDF to an editable Word document, keeping headings, tables, images and formatting. One free conversion a day, no account needed." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://pdf.btltech.co.uk/convert" />
 <meta property="og:site_name" content="BTLTech PDF Tools" />
+<meta property="og:image" content="https://pdf.btltech.co.uk/static/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="BTLTech PDF tools: edit the text in a PDF and keep its font and layout" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="stylesheet" href="/static/app.css" />
 </head>
 <body>
 
 <nav class="top">
-  <span class="logo">BTLTech</span>
+  <a class="logo" href="/"><img src="/static/brand/mark-on-dark.png" alt="" width="29" height="26" />BTLTech</a>
   <a href="/">Toolkit</a>
   <a href="/convert" class="active">PDF to Word</a>
   <a href="/edit">Edit PDF</a>
@@ -28,8 +34,10 @@
 </nav>
 
 <header class="page">
-  <h1>PDF &rarr; Word</h1>
+  <h1>Convert PDF to Word</h1>
   <p class="sub">Turn PDF documents into editable Word files &mdash; headings, tables, images and formatting preserved.</p>
+  <!--IF-BILLING--><p class="sub costs">You get {{FREE_CONVERSIONS}} a day. After that, packs of {{PACKS}},
+  which do not expire.</p><!--/IF-BILLING-->
 </header>
 
 <main class="card">
@@ -48,6 +56,46 @@
   <div id="billing" class="billing" hidden></div>
   <ul id="queue" class="queue"></ul>
 </main>
+
+<section class="more" aria-labelledby="how">
+  <h2 id="how">How it works</h2>
+  <ol class="steps">
+    <li><strong>Choose a PDF.</strong> It is sent to this server over an encrypted connection.</li>
+    <li><strong>It is converted,</strong> usually in about a second, into a Word document.</li>
+    <li><strong>Your download starts,</strong> and the moment it has been sent, both files are deleted from the server.</li>
+  </ol>
+
+  <h2>Questions</h2>
+  <details class="faq">
+    <summary>What does it keep from the PDF?</summary>
+    <p>Headings, paragraphs, tables, images and formatting, as editable Word content rather than pictures of the page. It is
+    good but not a perfect copy: dense multi-column layouts, unusual fonts and very large tables are the usual trouble spots,
+    so check the result against the original.</p>
+  </details>
+  <details class="faq">
+    <summary>Is my file uploaded, and is it kept?</summary>
+    <p>It is uploaded, because the conversion runs on this server. It is written to a temporary folder, converted, sent back,
+    and the folder is deleted as soon as your download has been sent. The file's name is not recorded. If you would rather a
+    document never left your device, the two editors on this site work entirely in your browser.</p>
+  </details>
+  <details class="faq">
+    <summary>How much does it cost?</summary>
+    <!--IF-BILLING--><p>You get {{FREE_CONVERSIONS}} a day, with no account. After that you can buy a pack: {{PACKS}}.
+    Credits do not expire. A conversion that fails gives its credit back automatically. Your credits are kept in this
+    browser rather than an account, so clearing this site's data loses them &mdash; see the <a href="/terms">terms of sale</a>.</p><!--/IF-BILLING-->
+    <!--IF-FREE--><p>Nothing. Conversions are free.</p><!--/IF-FREE-->
+  </details>
+  <details class="faq">
+    <summary>Can it convert a scanned PDF?</summary>
+    <p>No. A scan is a picture of a page, so there is no text in it to convert. The converter recognises a scan and says so,
+    rather than giving you a Word file full of images.</p>
+  </details>
+  <details class="faq">
+    <summary>How big a file can I convert?</summary>
+    <p>Up to {{MAX_MB}} MB. You can also convert just some of the pages by entering them in the Pages box, for example
+    <code>1-5</code> or <code>2,4,6</code>.</p>
+  </details>
+</section>
 
 <footer class="foot">Files are converted on this server and deleted immediately afterwards.
   <span class="source-line"><a href="/source">Source code</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; Free software under the <a href="https://www.gnu.org/licenses/agpl-3.0.html">GNU AGPL v3</a> &middot; No warranty</span>

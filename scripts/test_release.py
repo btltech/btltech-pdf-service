@@ -51,7 +51,7 @@ for rel in ("THIRD_PARTY_NOTICES.md", "LICENSES/Apache-2.0.txt", "LICENSES/pdf-l
     check(f"{rel} is present", os.path.isfile(os.path.join(ROOT, rel)))
 
 OWN_SOURCE = [
-    "app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py",
+    "app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py", "page_data.py",
     "static/index.html", "static/convert.html", "static/editor.html", "static/tools.html",
     "static/app.css",
 ] + sorted("scripts/" + name for name in os.listdir(os.path.join(ROOT, "scripts"))
@@ -144,11 +144,12 @@ check("no file refers to another BTLTECH LTD product, a local path, or a deploym
       not offenders, ", ".join(offenders))
 imports = set()
 for rel in ("app.py", "tools.py", "config.py", "source_offer.py", "converter_worker.py",
-            "billing.py", "paypal.py"):
+            "billing.py", "paypal.py", "page_data.py"):
     imports |= set(re.findall(r"^\s*(?:from|import)\s+([\w.]+)", read(rel).decode(), re.M))
 local = {name for name in imports if os.path.exists(os.path.join(ROOT, name.split(".")[0] + ".py"))}
 check("the service imports only its own modules and published packages",
-      local <= {"config", "tools", "source_offer", "app", "converter_worker", "billing", "paypal"},
+      local <= {"config", "tools", "source_offer", "app", "converter_worker", "billing", "paypal",
+                "page_data"},
       ", ".join(sorted(local)))
 
 print("\n=== summary ===")

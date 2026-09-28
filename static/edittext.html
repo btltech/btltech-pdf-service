@@ -5,15 +5,21 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Edit the text in a PDF &mdash; BTLTech</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9C%8F%EF%B8%8F</text></svg>" />
+<title>Edit Text in a PDF, Keeping the Font and Layout | BTLTech</title>
+<link rel="icon" type="image/png" href="/static/brand/mark.png" />
+<link rel="apple-touch-icon" href="/static/brand/mark.png" />
 <meta name="description" content="Change the words already printed in a PDF and keep the original font, size and layout. Runs in your browser, so the document is never uploaded." />
 <link rel="canonical" href="https://pdf.btltech.co.uk/edit-text" />
-<meta property="og:title" content="Edit the text in a PDF — BTLTech" />
+<meta property="og:title" content="Edit the text in a PDF and keep its font and layout — BTLTech" />
 <meta property="og:description" content="Change the words already printed in a PDF and keep the original font, size and layout. Runs in your browser, so the document is never uploaded." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://pdf.btltech.co.uk/edit-text" />
 <meta property="og:site_name" content="BTLTech PDF Tools" />
+<meta property="og:image" content="https://pdf.btltech.co.uk/static/og.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="BTLTech PDF tools: edit the text in a PDF and keep its font and layout" />
+<meta name="twitter:card" content="summary_large_image" />
 <link rel="stylesheet" href="/static/app.css" />
 <style>
   main.edittext { width:100%; max-width:1280px; display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:16px; align-items:start; }
@@ -59,7 +65,7 @@
 <body>
 
 <nav class="top">
-  <span class="logo">BTLTech</span>
+  <a class="logo" href="/"><img src="/static/brand/mark-on-dark.png" alt="" width="29" height="26" />BTLTech</a>
   <a href="/">Toolkit</a>
   <a href="/convert">PDF to Word</a>
   <a href="/edit">Edit PDF</a>
@@ -70,6 +76,8 @@
 <header class="page">
   <h1>Edit the text that is already in a PDF</h1>
   <p class="sub">Click a line of text, change the words, and save. The document is opened in this browser tab and never uploaded &mdash; there is no server to send it to.</p>
+  <!--IF-BILLING--><p class="sub costs">Free to edit and preview, as many changes as you like, on as many pages as you like.
+  Saving the clean copy of the finished document costs {{EXPORT_PRICE}}, once for that document.</p><!--/IF-BILLING-->
 </header>
 
 <div id="loading" class="note">Loading the PDF engine&hellip;</div>
@@ -81,6 +89,10 @@
       <p style="margin-top:8px">or <span class="browse">browse your device</span></p>
     </div>
     <input type="file" id="file" accept="application/pdf,.pdf" />
+    <p class="trysample" id="trysamplewrap" hidden>
+      No PDF to hand? <button type="button" id="trysample" class="linkish">Try it on a sample invoice</button>
+      &mdash; it has a date that does not exist and a name spelt wrong. Saving the sample is free.
+    </p>
 
     <div id="stage" hidden>
       <div class="stagebar">
@@ -137,6 +149,54 @@
     </p>
   </aside>
 </main>
+
+<section class="more" aria-labelledby="how">
+  <h2 id="how">How it works</h2>
+  <ol class="steps">
+    <li><strong>Open a PDF.</strong> It is read by this browser tab. Nothing is uploaded.</li>
+    <li><strong>Click a line and change the words.</strong> Press Preview to see exactly what will be saved, then Keep this change.</li>
+    <li><strong>Carry on, on any page.</strong> Every change you keep is held together, and all of them are saved in one file.</li>
+  </ol>
+
+  <h2>Questions</h2>
+  <details class="faq">
+    <summary>How much does it cost?</summary>
+    <!--IF-BILLING--><p>Editing and previewing are free: make as many changes as you like and see the finished document before
+    deciding anything. Until you pay, the result carries a preview mark across every page. {{EXPORT_PRICE}} saves a clean copy
+    of that document, once. The payment is remembered by this browser, so if you open the same original file here again
+    later and change it differently, it is still paid for. Clearing this site's data loses it. The
+    <a href="/terms">terms of sale</a> have the details.</p><!--/IF-BILLING-->
+    <!--IF-FREE--><p>Nothing. Editing, previewing and saving are all free.</p><!--/IF-FREE-->
+  </details>
+  <details class="faq">
+    <summary>Is my document uploaded?</summary>
+    <p>No. The PDF is read by this browser tab and edited there, using a PDF engine that runs on your own device. When
+    you pay for a clean copy, the server is told a fingerprint of the file so it can remember the payment &mdash; never
+    the file, and never its contents.</p>
+  </details>
+  <details class="faq">
+    <summary>Will it keep the font?</summary>
+    <p>It keeps the font, size, colour and alignment of the line, and any underline. If your new wording is longer, it
+    moves the rest of the line along, sets it very slightly narrower, or wraps it. The preview shows exactly what will be
+    saved, and the panel beside it says which font was used.</p>
+  </details>
+  <details class="faq">
+    <summary>Can I change more than one line, or lines on different pages?</summary>
+    <p>Yes. Keep each change as you go and move between pages freely. Everything you have kept stays on screen, and all
+    of it is saved together. You can also go back to a line you have already changed and change it again.</p>
+  </details>
+  <details class="faq">
+    <summary>What can it not do?</summary>
+    <p>It does not reflow a whole paragraph: it changes one line at a time. It cannot edit scanned pages, the lines of a
+    justified paragraph (the last line of one is fine), or Chinese, Japanese, Korean, Arabic or Hebrew text. When an edit
+    would not be safe it refuses and tells you why, rather than saving something broken.</p>
+  </details>
+  <details class="faq">
+    <summary>Does it work on a phone?</summary>
+    <p>Yes, in an ordinary mobile browser. The page is fitted to the screen, so pinch to zoom in before tapping a line if
+    the text is small.</p>
+  </details>
+</section>
 
 <footer class="foot">
   <a href="/source">Source code</a> &middot; <a href="/privacy">Privacy</a> &middot; <a href="/terms">Terms</a> &middot; AGPL-3.0-or-later &middot;

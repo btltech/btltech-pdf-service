@@ -238,8 +238,11 @@ check(
 # localhost, into a loop.
 print("\n=== the homepage tells people where they stand ===")
 home = client.get("/").text
-check("it says what is free and what is not, before anyone starts",
-      "one free conversion a day" in home and ("\u00a31" in home or "&pound;1" in home))
+# This suite runs with charging switched off, so the homepage must say plainly
+# that everything is free and quote no price. What it says with charging on is
+# checked in test_billing.py, against the configured figures.
+check("with charging off it says every tool is free, and quotes no price",
+      "Every tool here is free" in home and "\u00a3" not in home and "&pound;" not in home)
 check("it does not claim a single editor never uploads, now there are two of each kind",
       "The editor never uploads anything at all" not in home)
 check("it names which tools do send the file to the server",
@@ -275,6 +278,40 @@ for page, path in (("index.html", "/"), ("convert.html", "/convert"), ("edittext
     check(f"{path} has a description for search results",
           'name="description"' in body and len(body.split('name="description" content="')[1].split('"')[0]) > 60)
     check(f"{path} names its canonical address", 'rel="canonical"' in body)
+
+print("\n=== a free deployment never mentions money ===")
+for path in ("/edit-text", "/convert"):
+    body = client.get(path).text
+    check(f"{path} quotes no price when nothing is charged",
+          "£" not in body and "&pound;" not in body and "{{" not in body and "<!--IF-" not in body)
+import json as _json  # noqa: E402
+import re as _re  # noqa: E402
+m = _re.search(r'<script type="application/ld\+json">(.*?)</script>', client.get("/edit-text").text, _re.S)
+offers = [o["price"] for g in _json.loads(m.group(1))["@graph"] if g["@type"] == "WebApplication"
+          for o in g["offers"]] if m else None
+check("and tells search engines it is free", offers == ["0"], str(offers))
+
+print("\n=== what a first-time visitor and a search engine get ===")
+r = client.get("/static/samples/sample-invoice.pdf")
+check("the sample invoice is served", r.status_code == 200 and r.content[:5] == b"%PDF-", str(r.status_code))
+check("the text editor offers it", 'id="trysample"' in client.get("/edit-text").text)
+r = client.get("/static/og.png")
+check("a link-preview image is served", r.status_code == 200 and r.content[:8] == b"\x89PNG\r\n\x1a\n")
+for path in ("/", "/convert", "/edit", "/edit-text", "/tools", "/privacy", "/terms"):
+    body = client.get(path).text
+    check(f"{path} shows a preview image when shared",
+          'property="og:image" content="https://pdf.btltech.co.uk/static/og.png"' in body)
+    check(f"{path} carries the BTLTech mark, not only the name", "/static/brand/mark-on-dark.png" in body)
+check("the converter's heading uses the words people search for",
+      "<h1>Convert PDF to Word</h1>" in client.get("/convert").text)
+for path in ("/edit-text", "/convert", "/edit"):
+    body = client.get(path).text
+    n = body.count('<details class="faq">')
+    check(f"{path} explains itself below the tool", n >= 4, f"{n} questions")
+home = client.get("/").text
+check("the homepage leads with the text editor",
+      home.index('href="/edit-text"', home.index("<main")) < home.index('href="/convert"', home.index("<main")))
+check("no two tools share an emoji icon any more", "&#128221;" not in home)
 
 print("\n=== canonical host ===")
 import importlib  # noqa: E402

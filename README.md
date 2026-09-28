@@ -14,7 +14,9 @@ A PDF service run by BTLTECH LTD, in four parts:
 | **[Page tools](https://pdf.btltech.co.uk/tools)** | Merge, extract, delete, rotate, compress, number pages, watermark, protect, unlock | Server | Free |
 
 Prices are what the live service charges today; they are configuration, not code (see
-[Configuration](#configuration)). What a purchase buys, and how refunds work, is set out in the
+[Configuration](#configuration)). The pages never type a price in: they say `{{EXPORT_PRICE}}` and
+`{{PACKS}}`, which `page_data.py` fills from the same settings the server charges by, and a deployment
+with charging off says everything is free and quotes nothing. What a purchase buys, and how refunds work, is set out in the
 [terms of sale](https://pdf.btltech.co.uk/terms).
 
 **Stack:** Python · FastAPI · PyMuPDF · pdf2docx, plus pdf.js and pdf-lib for the browser editor and
@@ -263,12 +265,12 @@ scripts/run_tests.sh --browser     # everything; omit --browser for the Python s
 
 | Suite | Script | Assertions |
 |---|---|---|
-| Every endpoint, validation path, page and the converter (in-process) | `scripts/test_tools.py` | 54 |
-| Metering, credits, refunds on failure, payments and paid exports, with PayPal faked | `scripts/test_billing.py` | 60 |
+| Every endpoint, validation path, page and the converter (in-process), and that a deployment charging nothing never mentions money | `scripts/test_tools.py` | 80 |
+| Metering, credits, refunds on failure, payments and paid exports with PayPal faked; that every price on a page and in its search-engine data comes from configuration; that the sample is free | `scripts/test_billing.py` | 75 |
 | Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
 | The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
 | Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 18 |
-| Edit existing text in real Chrome: open, select, preview, refusals, several edits across pages, re-editing, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 47 |
+| Edit existing text in real Chrome: open, select, preview, refusals, several edits across pages, re-editing, the sample invoice, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 56 |
 | That editor's saved PDF, read back with PyMuPDF | `scripts/verify_edittext_output.py` | 8 |
 | The shipped edit-text engine against the frozen FROZEN9 reference | `scripts/regression_edittext.mjs` | 134 outputs |
 | Release: AGPL notices, source offer on every page, source ZIP contents, pdf.js setting, dependency split, separation from other software, conversion kept out of the server process | `scripts/test_release.py` | 21 |
@@ -340,7 +342,8 @@ This service is licensed under the GNU AGPL v3.0 or later. What that means for w
   `.env` file or credentials, because everything else in the directory is published.
 - **Keep it separate.** Do not import code from other BTLTECH LTD software into this service, and do
   not copy this code into other products; either would bring that software under the AGPL.
-- The BTLTech name and logo are not licensed under the AGPL.
+- The BTLTech name and logo are not licensed under the AGPL. The images in `static/brand/` are BTLTECH LTD's
+  trade marks: a fork may run and change this software but must replace them.
 
 Third-party components and their licences are listed in `THIRD_PARTY_NOTICES.md`; licence texts
 for the bundled browser libraries are in `LICENSES/`.
@@ -385,6 +388,7 @@ btltech-pdf-service/
 ├── converter_worker.py        # One PDF -> Word conversion, run as a child process
 ├── tools.py                   # The page tools (PyMuPDF)
 ├── billing.py                 # Free allowance, credits, unlocks (Postgres)
+├── page_data.py               # Prices filled in from configuration; search-engine markup
 ├── paypal.py                  # PayPal Orders v2, behind one small interface
 ├── source_offer.py            # /source and /source.zip (AGPL-3.0 s.13)
 ├── config.py                  # Settings from environment variables
@@ -409,6 +413,9 @@ btltech-pdf-service/
 │   │   ├── fontset.mjs        #   which fonts to fetch before an edit
 │   │   └── ui.mjs             #   the screen, and nothing else
 │   ├── fonts/                 # OFL substitute fonts (subset at edit time)
+│   ├── samples/               # The sample invoice offered on /edit-text (free to save)
+│   ├── brand/                 # BTLTech mark: a trade mark, NOT covered by the AGPL (see NOTICE.txt)
+│   ├── og.png                 # The picture shown when a link is shared
 │   └── vendor/                # pdf.js, pdf-lib, PDFium WASM, HarfBuzz WASM (unmodified)
 ├── scripts/
 │   ├── run_tests.sh           # Runs every suite
@@ -424,6 +431,7 @@ btltech-pdf-service/
 │   ├── regression_edittext.mjs     # Shipped engine vs the frozen reference
 │   ├── make_test_pdf.py       # Four-page test fixture
 │   ├── make_edittext_pdf.py   # Text-editing fixture (underline, justified, CJK, a scan)
+│   ├── make_sample_invoice.py # The sample invoice on /edit-text
 │   └── make_sample_pdf.py     # Demo document generator
 ├── LICENSE                    # GNU AGPL v3
 ├── LICENSES/                  # Apache-2.0, MIT, BSD-3-Clause and SIL OFL texts

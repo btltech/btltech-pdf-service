@@ -31,9 +31,13 @@ BASE_DIR = Path(__file__).resolve().parent
 # Directories and files that are not source: virtual environments, VCS data,
 # caches, generated samples and test output. Mirrors .gitignore.
 EXCLUDED_DIRS = {
-    ".venv", "venv", ".git", "__pycache__", "node_modules", "samples",
+    ".venv", "venv", ".git", "__pycache__", "node_modules",
     "tmp", "test-output", ".idea", ".vscode", ".pytest_cache",
 }
+# Excluded only at the top level, exactly as .gitignore anchors them.
+# "samples" at the root is generated demo output; static/samples is the sample
+# invoice the text editor serves, which is part of the running service.
+EXCLUDED_ROOT_DIRS = {"samples"}
 EXCLUDED_SUFFIXES = (".pyc", ".pyo")
 EXCLUDED_NAMES = {".DS_Store"}
 
@@ -54,7 +58,9 @@ def source_files() -> list:
     """Every file shipped in the source ZIP, as paths relative to BASE_DIR."""
     found = []
     for root, dirs, files in os.walk(BASE_DIR):
-        dirs[:] = sorted(d for d in dirs if d not in EXCLUDED_DIRS)
+        at_root = Path(root) == BASE_DIR
+        dirs[:] = sorted(d for d in dirs
+                         if d not in EXCLUDED_DIRS and not (at_root and d in EXCLUDED_ROOT_DIRS))
         for name in sorted(files):
             if not _excluded_file(name):
                 found.append(os.path.relpath(os.path.join(root, name), BASE_DIR))

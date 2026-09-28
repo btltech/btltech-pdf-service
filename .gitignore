@@ -12,8 +12,11 @@ test-output/
 .env
 .env.*
 
-# Generated demo files (regenerate with scripts/make_sample_pdf.py)
-samples/
+# Generated demo files (regenerate with scripts/make_sample_pdf.py). Anchored to the
+# root on purpose: a bare "samples/" also ignored static/samples/, the sample
+# invoice the text editor offers, and a deploy would have shipped the button
+# without the file.
+/samples/
 tmp/
 
 # OS / editors

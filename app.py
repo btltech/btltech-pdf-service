@@ -53,6 +53,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
 import billing
+import page_data
 import paypal
 import source_offer
 import tools
@@ -230,6 +231,9 @@ def _page(name: str) -> HTMLResponse:
     if not path.is_file():
         raise HTTPException(404, f"Page '{name}' is not installed")
     html_text = path.read_text(encoding="utf-8").replace("<!--SUPPORT-->", _support_link())
+    # Prices come from configuration and the search-engine markup is built from
+    # the page itself, so neither can drift from what the customer is charged.
+    html_text = page_data.render(name, html_text)
     # A new deployment gets new asset addresses, so nothing already held in a
     # cache can be served against a page that has moved on.
     if ASSET_VERSION:
@@ -338,6 +342,9 @@ async def export_status(doc: str = Query("", max_length=128),
     document it is answering about.
     """
     price = billing.export_price()
+    if page_data.is_sample(doc):
+        # The sample invoice on /edit-text: nobody pays to finish a demonstration.
+        return {"billing": page_data.charging(), "unlocked": True, "sample": True}
     if not billing.enabled() or not paypal.configured():
         # Nothing to sell and no way to pay: the export is simply free.
         return {"billing": False, "unlocked": True}
@@ -360,6 +367,8 @@ async def pay_create(payload: dict = Body(...)) -> dict:
         doc = str(payload.get("doc") or "").strip()
         if not doc:
             raise HTTPException(400, "No document was named")
+        if page_data.is_sample(doc):
+            raise HTTPException(400, "The sample invoice is free to save - there is nothing to pay for")
         pack, description = billing.export_price(), "Clean copy of an edited PDF"
     else:
         wanted = payload.get("credits")

@@ -360,6 +360,70 @@ check("and not for somebody else's browser", r.json().get("unlocked") is False)
 r = client.post("/api/pay/capture", json={"product": "export", "doc": DOC, "order_id": "EXP-WRONG-PRICE"})
 check("a payment of the wrong amount unlocks nothing", r.status_code == 409, str(r.status_code))
 
+print("\n=== what the pages say about money, from configuration ===")
+# Prices on the pages are filled in from the same settings the server charges
+# by. A figure typed into the HTML is a figure that goes stale the day the
+# setting changes - and a customer shown one price and charged another has
+# been misled.
+import json  # noqa: E402
+import re  # noqa: E402
+import page_data  # noqa: E402
+page_data.paypal = FakePayPal            # the pages ask the same question the endpoints do
+
+page = client.get("/edit-text").text
+check("the text editor states its price before anyone starts an edit",
+      "costs " + config.CURRENCY_SYMBOL + "1.00" in page)
+config.EXPORT_PRICE = "2.50"
+page = client.get("/edit-text").text
+check("the price on the page follows the setting",
+      "costs " + config.CURRENCY_SYMBOL + "2.50" in page and "1.00" not in page.split("application/ld+json")[0])
+config.EXPORT_PRICE = "1.00"
+
+home = client.get("/").text
+check("the homepage says what is free and what costs money, before anyone starts",
+      "one free conversion a day" in home and config.CURRENCY_SYMBOL + "1.00 saves a clean copy" in home)
+
+packs_text = page_data._packs_text()
+check("the converter states its packs from the setting", packs_text in client.get("/convert").text, packs_text)
+
+leftovers = [u for u in ("/", "/convert", "/edit", "/edit-text", "/tools", "/privacy", "/terms")
+             if "{{" in client.get(u).text or "<!--IF-" in client.get(u).text]
+check("no template marker is left on any page", not leftovers, ", ".join(leftovers))
+
+
+def structured(url):
+    m = re.search(r'<script type="application/ld\+json">(.*?)</script>', client.get(url).text, re.S)
+    return json.loads(m.group(1).replace("<\\/", "</")) if m else None
+
+
+ld = structured("/edit-text")
+check("the text editor carries structured data", ld is not None)
+app_ld = next((g for g in (ld or {}).get("@graph", []) if g.get("@type") == "WebApplication"), {})
+check("its offers are free editing and the configured export price",
+      [o["price"] for o in app_ld.get("offers", [])] == ["0", "1.00"], str(app_ld.get("offers"))[:120])
+faq_ld = next((g for g in (ld or {}).get("@graph", []) if g.get("@type") == "FAQPage"), {})
+visible = [re.sub(r"\s+", " ", q).strip()
+           for q in re.findall(r"<summary>(.*?)</summary>", client.get("/edit-text").text, re.S)]
+check("the FAQ markup asks exactly the questions the page shows",
+      [q["name"] for q in faq_ld.get("mainEntity", [])] == visible and len(visible) >= 5, f"{len(visible)} visible")
+check("and answers with the configured price, not a stale one",
+      any("1.00" in q["acceptedAnswer"]["text"] for q in faq_ld.get("mainEntity", [])))
+conv = next((g for g in (structured("/convert") or {}).get("@graph", []) if g.get("@type") == "WebApplication"), {})
+check("the converter's offers are the free allowance and every pack",
+      [o["price"] for o in conv.get("offers", [])] == ["0"] + [p.price for p in billing.packs()],
+      str([o["price"] for o in conv.get("offers", [])]))
+
+print("\n=== the sample invoice is free to finish ===")
+sample = page_data.sample_hash()
+check("the server knows the sample by its fingerprint", len(sample) == 64, sample[:16])
+r = client.get("/api/export/status", params={"doc": sample})
+check("its clean copy is unlocked without paying", r.json().get("unlocked") is True, str(r.json()))
+check("and it is marked as the sample, so the page can say so", r.json().get("sample") is True)
+r = client.post("/api/pay/create", json={"product": "export", "doc": sample})
+check("nobody can be charged for the sample", r.status_code == 400, str(r.status_code))
+r = client.get("/api/export/status", params={"doc": "d" * 64})
+check("while any other document is still locked", r.json().get("unlocked") is False)
+
 print("\n=== paid, but the record could not be written ===")
 # The worst moment in any payment flow: the money has gone and the database is
 # unreachable. What must never happen is the customer losing both.

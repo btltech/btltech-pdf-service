@@ -1,0 +1,4 @@
+The BTLTech name and the logo images in this folder are trade marks of
+BTLTECH LTD. They are not covered by the GNU AGPL that licenses the rest of
+this repository: you may run and change this software, but not present your
+copy as BTLTech's.

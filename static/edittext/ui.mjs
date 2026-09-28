@@ -41,6 +41,7 @@ async function refreshLock() {
     const r = await fetch(`/api/export/status?doc=${encodeURIComponent(state.docHash)}`, { headers });
     const d = await r.json();
     state.locked = d.billing === true && d.unlocked !== true;
+    state.sample = d.sample === true;
     state.price = d.price || ""; state.currency = d.currency || "";
   } catch (e) {
     state.locked = false;            // if the question cannot be asked, do not charge
@@ -129,6 +130,9 @@ async function loadFile(file) {
   $("filename").textContent = `${file.name} — ${state.pageCount} page${state.pageCount > 1 ? "s" : ""}`;
   $("stage").hidden = false;
   $("dropzone").classList.add("small");
+  // Offering the sample once a real document is open would invite someone to
+  // swap their own work for it by accident.
+  $("trysamplewrap").hidden = true;
   await showPage(0);
 }
 
@@ -505,6 +509,33 @@ for (const ev of ["dragleave", "drop"]) {
   dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("drag"); });
 }
 dz.addEventListener("drop", (e) => loadFile(e.dataTransfer.files[0]));
+
+/**
+ * Open the sample invoice, for someone with no PDF to hand.
+ *
+ * It goes through loadFile exactly as a customer's own file does, so what they
+ * see is the real editor and not a demonstration of it. The server recognises
+ * the sample by its fingerprint and treats its clean copy as free.
+ */
+$("trysample").addEventListener("click", async (e) => {
+  const button = e.currentTarget;
+  button.disabled = true;
+  try {
+    const r = await fetch("/static/samples/sample-invoice.pdf");
+    if (!r.ok) throw new Error("the sample could not be fetched");
+    const file = new File([await r.arrayBuffer()], "sample-invoice.pdf", { type: "application/pdf" });
+    await loadFile(file);
+    if (state.sample) {
+      say("This is the sample invoice. Try fixing the date &mdash; there is no 31 February &mdash; "
+          + "or the spelling of &ldquo;Servises&rdquo;. Click a highlighted line to start. "
+          + "Saving a copy of the sample is free.", "ok");
+    }
+  } catch (err) {
+    say(`Could not open the sample: ${esc(err.message)}.`, "bad");
+  } finally {
+    button.disabled = false;
+  }
+});
 $("overlay").addEventListener("click", pick);
 $("preview").addEventListener("click", preview);
 $("keep").addEventListener("click", keepEdit);
@@ -542,4 +573,5 @@ window.__edittext = {
 
 $("loading").hidden = true;
 $("dropzone").hidden = false;
+$("trysamplewrap").hidden = false;
 document.body.dataset.ready = "1";     // the browser test waits for this

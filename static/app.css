@@ -43,14 +43,26 @@ nav.top {
   flex-wrap: wrap;
   margin-bottom: 34px;
 }
-nav.top .logo {
+/* The shield from the BTLTech logo, so a customer arriving from the shop's
+   printed card or the main site sees the same mark they just left. It is a
+   link like the others, so "a.logo" is written out: that is more specific than
+   the plain "nav.top a" rule below and wins over its padding and background
+   whatever the order. */
+nav.top a.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-size: 12px;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: var(--accent);
   font-weight: 700;
-  margin-right: 18px;
+  margin-right: 12px;
+  padding: 4px 8px 4px 0;
+  background: none;
 }
+nav.top a.logo:hover { background: none; color: var(--ink); }
+nav.top a.logo img { width: 29px; height: 26px; display: block; }
 nav.top a {
   color: var(--muted);
   text-decoration: none;
@@ -111,7 +123,7 @@ a.card-link {
   transition: border-color .15s, transform .15s;
 }
 a.card-link:hover { border-color: var(--accent); transform: translateY(-2px); }
-a.card-link .icon { font-size: 22px; }
+a.card-link .icon { display: block; color: var(--accent); }
 a.card-link h2 { margin: 12px 0 8px; }
 a.card-link p { color: var(--muted); font-size: 13px; line-height: 1.55; }
 a.card-link .pill {
@@ -261,3 +273,55 @@ a.btn:hover { background: #3d7bfd; }
    nothing is ever gated behind it. */
 .support-line a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
 .support-line a:hover { color: var(--ink); }
+
+/* -------------------------------------------- explanation under a tool --- */
+/* A tool page that is only the tool gives a search engine almost nothing to
+   read and a hesitant visitor nothing to go on. This sits below the working
+   area, so it never pushes the tool itself down the page. */
+
+section.more { width: 100%; max-width: 760px; margin-top: 44px; }
+section.more h2 { font-size: 19px; margin: 30px 0 12px; }
+section.more h2:first-child { margin-top: 0; }
+section.more p, section.more li { font-size: 14px; line-height: 1.65; color: var(--muted); }
+section.more strong { color: var(--ink); font-weight: 600; }
+section.more a { color: var(--accent); }
+
+ol.steps { list-style: none; counter-reset: step; display: grid; gap: 10px; }
+/* The number sits in the margin, out of the text's way. A grid here split each
+   step into cells - the bold phrase in one, the rest of the sentence squeezed
+   into the 28px number column one word per line. */
+ol.steps li { counter-increment: step; position: relative; padding-left: 40px; min-height: 24px; }
+ol.steps li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0;
+  display: grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #1b2947; color: var(--accent); font-size: 12px; font-weight: 700;
+}
+
+details.faq { border-top: 1px solid var(--line); }
+details.faq:last-of-type { border-bottom: 1px solid var(--line); }
+details.faq summary {
+  cursor: pointer; list-style: none;
+  padding: 14px 28px 14px 0; position: relative;
+  font-size: 15px; font-weight: 600; color: var(--ink);
+}
+details.faq summary::-webkit-details-marker { display: none; }
+details.faq summary::after {
+  content: "+"; position: absolute; right: 4px; top: 12px;
+  font-size: 18px; font-weight: 400; color: var(--muted-2);
+}
+details.faq[open] summary::after { content: "\2212"; }
+details.faq summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+details.faq p { padding: 0 0 16px; }
+
+/* the "try the sample" offer under the drop zone */
+p.trysample { margin-top: 12px; font-size: 13px; line-height: 1.55; color: var(--muted); text-align: center; }
+button.linkish {
+  background: none; border: 0; padding: 0; font: inherit; font-weight: 600;
+  color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+button.linkish:hover { color: var(--ink); }
+button.linkish:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+button.linkish:disabled { opacity: .6; cursor: default; }
+section.more code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 12px; color: var(--ink); }

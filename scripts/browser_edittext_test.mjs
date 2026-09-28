@@ -85,7 +85,8 @@ async function typeAndPreview(text) {
 
 console.log("\n=== the page loads and the engine starts ===");
 await page.goto(BASE + "/edit-text", { waitUntil: "load" });
-check("page title names the feature", (await page.title()).includes("Edit the text"));
+// in the words people search with - "edit text in a PDF" - rather than a house phrase
+check("page title names the feature", /edit (the )?text in a pdf/i.test(await page.title()), await page.title());
 await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 30000 });
 check("the PDFium engine is ready in the browser", await page.evaluate(() => document.body.dataset.ready === "1"));
 check("pdf-lib is loaded for the integrity check", await page.evaluate(() => typeof window.PDFLib === "object"));
@@ -326,6 +327,40 @@ const afterOpen = requests.slice(mark).filter((r) => !injected(r.url));
 const uploads = afterOpen.filter((r) => r.method !== "GET" || r.body > 0);
 check("opening, editing and saving a document uploads nothing",
   uploads.length === 0, uploads.map((r) => `${r.method} ${r.url}`).join(", ").slice(0, 120) || `${afterOpen.length} request(s), all plain GETs`);
+
+console.log("\n=== the sample, for someone with no PDF to hand ===");
+// Somebody who scans the counter card on a phone rarely has a PDF ready. The
+// sample must open through the same path as their own file would, and its first
+// edits must be ACCEPTED: a demonstration whose first click is a refusal is
+// worse than no demonstration.
+await page.reload({ waitUntil: "load" });
+await page.waitForFunction(() => document.body.dataset.ready === "1", null, { timeout: 30000 });
+check("the offer is shown once the editor is ready", await page.isVisible("#trysample"));
+const beforeSample = requests.length;
+await page.click("#trysample");
+await page.waitForFunction(() => window.__edittext.runs.length > 0, null, { timeout: 30000 });
+check("the sample opens in the real editor", /sample-invoice\.pdf/.test(await page.textContent("#filename")),
+      await page.textContent("#filename"));
+check("the offer is withdrawn once a document is open", !(await page.isVisible("#trysample")));
+const sampleFetches = requests.slice(beforeSample).filter((r) => !injected(r.url));
+check("opening it is a plain download of this site's own file, nothing sent",
+      sampleFetches.every((r) => r.method === "GET" && !r.body), `${sampleFetches.length} request(s)`);
+
+for (const [find, wording] of [["February", "28 February 2026"], ["Servises", "Northwood Services Ltd"]]) {
+  const at = (await runs()).findIndex((t) => t.includes(find));
+  check(`the sample has a line containing "${find}" to fix`, at >= 0);
+  if (at < 0) continue;
+  await selectRun(at);
+  await typeAndPreview(wording);
+  const verdict = await statusText();
+  check(`fixing "${find}" is accepted, not refused`, /ready/i.test(verdict), verdict.slice(0, 70));
+  if (/ready/i.test(verdict)) {
+    const n = await page.evaluate(() => window.__edittext.edits);
+    await page.click("#keep");
+    await page.waitForFunction((k) => window.__edittext.edits === k + 1, n, { timeout: 20000 });
+  }
+}
+check("both fixes are held together", await page.evaluate(() => window.__edittext.edits) === 2);
 
 console.log("\n=== browser health ===");
 check("no uncaught page errors", noise.length === 0, noise.slice(0, 3).join(" | ").slice(0, 300));

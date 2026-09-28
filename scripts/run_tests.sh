@@ -24,9 +24,9 @@ run() {
   "$@" || FAILED=1
 }
 
-run "endpoints (54 assertions)" "$PY" scripts/test_tools.py
+run "endpoints (80 assertions)" "$PY" scripts/test_tools.py
 run "release checks" "$PY" scripts/test_release.py
-run "paid conversion rules (60 assertions)" "$PY" scripts/test_billing.py
+run "paid conversion rules (75 assertions)" "$PY" scripts/test_billing.py
 run "edit-text engine vs the frozen reference" node scripts/regression_edittext.mjs
 
 if [ "${1:-}" = "--browser" ]; then
