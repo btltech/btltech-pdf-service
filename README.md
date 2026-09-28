@@ -1,19 +1,31 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 # BTLTech — PDF Toolkit
 
-A free, self-contained PDF service run by BTLTECH LTD, in three parts:
+> **Use it at [pdf.btltech.co.uk](https://pdf.btltech.co.uk)** — nothing to install, no account.
+> This repository is its source code.
 
-| Part | What it does | Where it runs | Speed |
+A PDF service run by BTLTECH LTD, in four parts:
+
+| Part | What it does | Where it runs | Price |
 |---|---|---|---|
-| **PDF → Word** | Editable `.docx` with headings, tables, images and formatting preserved (V1 + V2) | Server | ~1 s per document |
-| **Edit PDF** | Text, draw/sign, highlight, box, stamp an image; reorder or delete pages | **Entirely in your browser** | instant, no upload |
-| **Page tools** | Merge, extract, delete, rotate, compress, number pages, watermark, protect, unlock | Server | 11–69 ms each |
+| **[Edit existing text](https://pdf.btltech.co.uk/edit-text)** | Click a line in a PDF and change the words, keeping its font, size, colour and alignment | **Entirely in your browser** | Free to edit and preview; **£1** for the clean copy of a finished document |
+| **[PDF → Word](https://pdf.btltech.co.uk/convert)** | Editable `.docx` with headings, tables, images and formatting preserved | Server | **1 free a day**, then packs of 10 for £2 or 25 for £4 |
+| **[Edit PDF](https://pdf.btltech.co.uk/edit)** | Text, draw/sign, highlight, box, stamp an image; reorder or delete pages | **Entirely in your browser** | Free |
+| **[Page tools](https://pdf.btltech.co.uk/tools)** | Merge, extract, delete, rotate, compress, number pages, watermark, protect, unlock | Server | Free |
 
-**Stack:** Python · FastAPI · PyMuPDF · pdf2docx, plus pdf.js and pdf-lib for the browser editor.
-No database, no external API keys, no third-party cloud services.
+Prices are what the live service charges today; they are configuration, not code (see
+[Configuration](#configuration)). What a purchase buys, and how refunds work, is set out in the
+[terms of sale](https://pdf.btltech.co.uk/terms).
+
+**Stack:** Python · FastAPI · PyMuPDF · pdf2docx, plus pdf.js and pdf-lib for the browser editor and
+PDFium compiled to WebAssembly for the text editor. Payments go through PayPal; a small Postgres
+database records what has been paid for. With billing switched off - the default - neither is used
+and the service needs no database and no external keys at all.
 
 Server-side work happens in a temporary folder and the file is deleted the moment the download
-finishes. The editor uploads nothing at all — the document never leaves the device.
+finishes. Both editors upload nothing at all — the document never leaves the device, including
+when you pay: the server is told a fingerprint of the file, never the file.
+[What happens to a document](https://pdf.btltech.co.uk/privacy) is set out tool by tool.
 
 **Licence:** free software under the GNU Affero General Public License v3.0 or later (`LICENSE`).
 Because this is a network service, anyone using it must be able to get its source code; every page
@@ -43,6 +55,8 @@ Open **http://127.0.0.1:8000**.
 | `/edit` | Browser-side PDF editor: annotate, sign, organise pages |
 | `/edit-text` | Edit the text already in a PDF, in the browser |
 | `/tools` | The nine page tools |
+| `/privacy` | What happens to a document, tool by tool |
+| `/terms` | Terms of sale: what the two paid things are, refunds, cancellation |
 | `/source` | Licence and source-code download (AGPL-3.0 section 13) |
 | `/source.zip` | The source of the running version, as a ZIP |
 
@@ -84,6 +98,22 @@ feedback (for example `11.9 MB → 18.1 KB` after compressing).
 curl -F "file=@samples/demo.pdf" -F "text=DRAFT" -F "opacity=0.2" \
      http://127.0.0.1:8000/api/tools/watermark -o watermarked.pdf
 ```
+
+### Payments
+
+Only present when billing is switched on (`PDF_BILLING=on` with a database and at least one pack).
+With billing off, `/api/allowance` and `/api/export/status` report everything as free and the
+payment endpoints answer 503.
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/allowance` | Free conversions left today, credits held, packs on offer |
+| `GET` | `/api/export/status?doc=<sha256>` | Whether this document's clean copy is paid for, and its price |
+| `POST` | `/api/pay/create` | `{"credits": 10}` for a pack, or `{"product": "export", "doc": "<sha256>"}` |
+| `POST` | `/api/pay/capture` | `{"order_id": ..., ...}` — the server asks PayPal what happened |
+
+The browser sends an `X-PDF-Token` header with the token it was given at its first purchase. Prices
+always come from the server: a capture for any amount this service does not sell grants nothing.
 
 ### Measured timings
 
@@ -174,9 +204,30 @@ download it, and a file that fails is discarded rather than offered.
 **It does not reflow paragraphs.** Editing a line does not re-break the paragraph
 around it. That is a V2 question and deliberately out of scope here.
 
+### Paying for the clean copy
+
+Editing and previewing are free, as many changes as you like, across as many pages as the
+document has. Until the export is paid for, every page of the result carries a repeating
+"BTLTECH PREVIEW — UNPAID" mark (`static/edittext/watermark.mjs`), readable through but not
+usable as a document.
+
+The mark is applied *before* the file is saved, so while the export is locked a clean version of
+the finished document is never produced at all — not produced and then hidden behind a disabled
+button, which would leave it in the page's memory. Paying replays every edit from the original
+file and saves once, without the mark.
+
+The payment is recorded against a SHA-256 of the **original** file, computed in the browser. So
+it follows the source document rather than one set of edits: open the same file later in the same
+browser, change it differently, and it is still unlocked. The file itself is never sent.
+
+This is a sign, not a lock, and it does not pretend otherwise: the editor runs on the customer's
+machine and its source is here, so anyone determined can run it themselves. For an honest customer
+it is the whole difference.
+
 ### The frozen reference
 
-The seven corpora and the 133 recorded hashes live outside this repository, in a
+The seven corpora and the 142 recorded hashes (the 7 engine files and all 134 saved
+outputs) live outside this repository, in a
 snapshot at `~/btltech-pdf-editor-reference-frozen9` (override with `EDITTEXT_REFERENCE`), with the previous FROZEN8 snapshot kept beside it.
 They are third-party PDFs downloaded for testing: fine to keep privately, not ours
 to publish under the AGPL. Without that snapshot the regression suite reports that
@@ -212,17 +263,25 @@ scripts/run_tests.sh --browser     # everything; omit --browser for the Python s
 
 | Suite | Script | Assertions |
 |---|---|---|
-| Every endpoint, validation path, page and the converter (in-process) | `scripts/test_tools.py` | 35 |
+| Every endpoint, validation path, page and the converter (in-process) | `scripts/test_tools.py` | 54 |
+| Metering, credits, refunds on failure, payments and paid exports, with PayPal faked | `scripts/test_billing.py` | 60 |
 | Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
 | The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
-| Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 15 |
-| Edit existing text in real Chrome: open, select, preview, refusals, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 26 |
+| Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 18 |
+| Edit existing text in real Chrome: open, select, preview, refusals, several edits across pages, re-editing, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 47 |
 | That editor's saved PDF, read back with PyMuPDF | `scripts/verify_edittext_output.py` | 8 |
 | The shipped edit-text engine against the frozen FROZEN9 reference | `scripts/regression_edittext.mjs` | 134 outputs |
 | Release: AGPL notices, source offer on every page, source ZIP contents, pdf.js setting, dependency split, separation from other software, conversion kept out of the server process | `scripts/test_release.py` | 21 |
+| While the export is locked, no clean file can be taken (run by hand, see below) | `scripts/test_export_lock.py` | 4 |
 
-The first four are the original 73 assertions. The editor-output and page-tools UI checks used to be
-run by hand; they are now scripts. `run_tests.sh --browser` generates its own four-page fixture
+**What the suites cannot reach.** `test_billing.py` replaces PayPal with a fake, so it proves the
+rules around a payment, not the payment. The real round trip - capture, record, unlock, clean
+file - was proven once with real money on 24 Sep 2026 (order `3CH57248G71446942`). Re-prove it
+after any change to `paypal.py` or `pay_capture`. `test_export_lock.py` needs a server with
+billing switched on, so it is not in `run_tests.sh`; run it against one with
+`APP_URL=https://… .venv/bin/python scripts/test_export_lock.py`.
+
+`run_tests.sh --browser` generates its own four-page fixture
 (`scripts/make_test_pdf.py`), starts the app on port 8765, runs the browser suites and stops it.
 It needs Google Chrome; set `CHROME_PATH` if Chrome is not in the default macOS location. Output
 goes to `test-output/` (ignored by git).
@@ -294,21 +353,43 @@ for the bundled browser libraries are in `LICENSES/`.
 | `PDF2WORD_PORT` | `8000` | Port to listen on |
 | `PDF2WORD_MAX_MB` | `50` | Max upload size in MB |
 | `PDF2WORD_CONVERT_WORKERS` | `2` | PDF → Word conversions that run at once (each ~150–250 MB) |
-| `PDF_SUPPORT_URL` | *(unset)* | Optional "support this tool" link in the footer. Unset in production, and how this service is funded has not been decided. If it is ever used it stays a plain link with nothing gated behind it: a payment provider's script would contradict what these pages promise about files staying in the browser |
-| `PDF_SUPPORT_LABEL` | `Support this tool` | The wording of that link |
 | `PDF2WORD_CONVERT_TIMEOUT_S` | `300` | Stop a conversion that runs longer than this |
 | `PDF_SOURCE_REPO_URL` | *(empty)* | Public repository URL shown on `/source` |
-| `PDF_SOURCE_VERSION` | git commit, if available | Version shown on `/source` and in `X-Source-Version` |
+| `PDF_SOURCE_VERSION` | git commit, if available | Version shown on `/source` and in `X-Source-Version`. Set it **before** deploying: setting it afterwards redeploys the old build with the new label |
+| `PDF_CANONICAL_HOST` | *(empty)* | The one hostname the service is known by, e.g. `pdf.btltech.co.uk` |
+| `PDF_REDIRECT_HOSTS` | *(empty)* | Comma-separated hostnames that 301 to the canonical one. Hostnames not listed are left alone |
+| `PDF_SUPPORT_URL` | *(unset)* | Optional plain "support this tool" link in the footer, with nothing gated behind it. Unset in production, where the paid features below are used instead |
+| `PDF_SUPPORT_LABEL` | `Support this tool` | The wording of that link |
+
+**Billing.** Everything below is off unless `PDF_BILLING` is on *and* `DATABASE_URL` is set *and*
+at least one pack is configured. A half-configured deployment gives the service away rather than
+taking money it cannot account for.
+
+| Environment variable | Default | Meaning |
+|---|---|---|
+| `PDF_BILLING` | *(off)* | `on` to charge for conversions and clean exports |
+| `DATABASE_URL` | *(empty)* | Postgres, for credits, unlocks and the daily free count |
+| `PDF_BILLING_SALT` | *(empty)* | Secret for hashing callers' addresses. **Must be set** — without it a hash could be reversed by trying every address |
+| `PDF_FREE_PER_DAY` | `1` | Free PDF → Word conversions per caller per day |
+| `PDF_PACKS` | *(empty)* | Packs on sale, as `credits:price` pairs — production uses `10:2.00,25:4.00` |
+| `PDF_EXPORT_PRICE` | `1.00` | Price of the clean copy of one edited document |
+| `PDF_CURRENCY` / `PDF_CURRENCY_SYMBOL` | `GBP` / `£` | |
+| `PAYPAL_CLIENT_ID` / `PAYPAL_SECRET` | *(empty)* | PayPal REST credentials |
+| `PAYPAL_ENV` | `sandbox` | `live` to take real money |
 
 ## Project structure
 
 ```
 btltech-pdf-service/
-├── app.py                     # FastAPI app: pages + the Word converter
+├── app.py                     # FastAPI app: pages, the Word converter, payment endpoints
 ├── converter_worker.py        # One PDF -> Word conversion, run as a child process
 ├── tools.py                   # The page tools (PyMuPDF)
+├── billing.py                 # Free allowance, credits, unlocks (Postgres)
+├── paypal.py                  # PayPal Orders v2, behind one small interface
 ├── source_offer.py            # /source and /source.zip (AGPL-3.0 s.13)
 ├── config.py                  # Settings from environment variables
+├── PRIVACY.md                 # Privacy notice: facts, how to check them, open questions
+├── TERMS.md                   # Terms of sale: the same, for what is sold
 ├── static/
 │   ├── app.css                # Shared styles
 │   ├── index.html             # Hub
@@ -316,9 +397,12 @@ btltech-pdf-service/
 │   ├── editor.html            # Browser editor
 │   ├── edittext.html          # Edit existing text UI
 │   ├── tools.html             # Page tools UI
+│   ├── privacy.html           # /privacy
+│   ├── terms.html             # /terms
 │   ├── edittext/              # The frozen V1 text-editing engine
 │   │   ├── engine.mjs         #   FROZEN9, file access aside (see PORTING.md)
 │   │   ├── workflow.mjs       #   every gate, shared by the browser and the tests
+│   │   ├── watermark.mjs      #   the preview mark on an unpaid export
 │   │   ├── integrity.mjs      #   the download gate
 │   │   ├── subset.mjs         #   HarfBuzz font subsetting
 │   │   ├── assets.mjs         #   the only place it touches files
@@ -330,6 +414,8 @@ btltech-pdf-service/
 │   ├── run_tests.sh           # Runs every suite
 │   ├── test_tools.py          # Endpoint suite
 │   ├── test_release.py        # Licence, source offer, security and separation checks
+│   ├── test_billing.py        # Metering, credits, refunds, payments (PayPal faked)
+│   ├── test_export_lock.py    # The watermark and the paid export
 │   ├── browser_test.mjs       # Editor in Chrome
 │   ├── verify_editor_output.py
 │   ├── browser_tools_test.mjs # Page tools and converter in Chrome
