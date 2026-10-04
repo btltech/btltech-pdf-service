@@ -266,10 +266,11 @@ scripts/run_tests.sh --browser     # everything; omit --browser for the Python s
 | Suite | Script | Assertions |
 |---|---|---|
 | Every endpoint, validation path, page and the converter (in-process), and that a deployment charging nothing never mentions money | `scripts/test_tools.py` | 80 |
-| Metering, credits, refunds on failure, payments and paid exports with PayPal faked; that every price on a page and in its search-engine data comes from configuration; that the sample is free | `scripts/test_billing.py` | 75 |
+| Metering, credits, refunds on failure, payments and paid exports with PayPal faked; that every price on a page and in its search-engine data comes from configuration; that the sample is free; that each pack's displayed price and per-conversion price follow the configured price | `scripts/test_billing.py` | 78 |
 | Browser editor in real Chrome: load, annotate, erase, undo, reorder, zoom, save | `scripts/browser_test.mjs` | 21 |
 | The editor's saved PDF: pages, order, selectable text, marks baked in | `scripts/verify_editor_output.py` | 8 |
 | Page tools and PDF → Word pages in real Chrome | `scripts/browser_tools_test.mjs` | 18 |
+| The redesigned pages (hub, PDF to Word, Edit existing text, Edit PDF, Page tools) in real Chrome, desktop and phone: nothing scrolls sideways, every tap target is at least 44px, text is readable (4.5:1), the pay notice sits with the pay buttons, each editor tool shows only its own options, the phone save bar and pinned tools, the page-tool picker | `scripts/browser_pages_v2_test.mjs` | 102 |
 | Edit existing text in real Chrome: open, select, preview, refusals, several edits across pages, re-editing, the sample invoice, save, and that nothing is uploaded | `scripts/browser_edittext_test.mjs` | 56 |
 | That editor's saved PDF, read back with PyMuPDF | `scripts/verify_edittext_output.py` | 8 |
 | The shipped edit-text engine against the frozen FROZEN9 reference | `scripts/regression_edittext.mjs` | 134 outputs |

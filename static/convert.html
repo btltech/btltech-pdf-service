@@ -22,7 +22,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="stylesheet" href="/static/app.css" />
 </head>
-<body>
+<body class="v2">
 
 <nav class="top">
   <a class="logo" href="/"><img src="/static/brand/mark-on-dark.png" alt="" width="29" height="26" />BTLTech</a>
@@ -36,25 +36,33 @@
 <header class="page">
   <h1>Convert PDF to Word</h1>
   <p class="sub">Turn PDF documents into editable Word files &mdash; headings, tables, images and formatting preserved.</p>
-  <!--IF-BILLING--><p class="sub costs">You get {{FREE_CONVERSIONS}} a day. After that, packs of {{PACKS}},
-  which do not expire.</p><!--/IF-BILLING-->
 </header>
 
 <main class="card">
+  <div class="cardhead">
+    <h2>Convert a PDF</h2>
+    <span id="allow" class="status-pill" role="status" hidden></span>
+  </div>
+
   <div id="dropzone" class="dropzone" role="button" tabindex="0">
+    <svg class="up" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5"/><path d="M7.5 9.5L12 5l4.5 4.5"/><path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/></svg>
     <p><strong class="drag-only">Drag &amp; drop your PDF files here</strong><strong class="tap-only">Choose your PDF files</strong></p>
-    <p style="margin-top:8px">or <span class="browse">browse your device</span></p>
+    <span class="browse btn-like">Choose PDF files</span>
   </div>
   <input type="file" id="fileInput" accept=".pdf,application/pdf" multiple />
 
-  <div class="row">
-    <label for="pages">Pages (optional)</label>
-    <input id="pages" type="text" placeholder="e.g. 1-5 or 2,4-6" />
-    <span class="small muted">leave blank to convert the whole document</span>
-  </div>
+  <details class="pages">
+    <summary>Only some pages? (optional)</summary>
+    <div class="row">
+      <label for="pages">Pages</label>
+      <input id="pages" type="text" placeholder="e.g. 1-5 or 2,4-6" />
+      <span class="small muted">leave blank to convert the whole document</span>
+    </div>
+  </details>
 
   <div id="billing" class="billing" hidden></div>
   <ul id="queue" class="queue"></ul>
+  <p class="fine">Sent to this server over an encrypted connection, and deleted the moment your download has been sent.</p>
 </main>
 
 <section class="more" aria-labelledby="how">
@@ -269,40 +277,60 @@
       .catch(function () { billingBox.hidden = true; });
   }
 
+  var allowEl = document.getElementById("allow");
+
+  function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
   function renderBilling(message) {
-    if (!state || !state.billing) { billingBox.hidden = true; return; }
+    if (!state || !state.billing) { billingBox.hidden = true; allowEl.hidden = true; return; }
+    // The count sits in a pill beside the title, so it is the first thing seen.
+    var text;
+    if (state.credits > 0) {
+      text = "You have <strong>" + state.credits + "</strong> conversion" + (state.credits === 1 ? "" : "s") +
+        " left, and " + state.free_left + " free today";
+    } else if (state.free_left > 0) {
+      text = plural(state.free_left, "free conversion") + " left today";
+    } else {
+      text = "No conversions left today";
+    }
+    allowEl.hidden = false;
+    allowEl.innerHTML = '<span class="dot ' + (state.may_convert ? "ok" : "") + '"></span>' + text;
+
     billingBox.hidden = false;
     billingBox.className = "billing" + (state.may_convert ? "" : " need");
-    var lines = [];
-    if (message) lines.push("<strong>" + esc(message) + "</strong>");
-    if (state.credits > 0) {
-      lines.push("You have <strong>" + state.credits + "</strong> conversion" +
-        (state.credits === 1 ? "" : "s") + " left, and " + state.free_left + " free today.");
-    } else if (state.free_left > 0) {
-      lines.push(state.free_left + " free conversion" + (state.free_left === 1 ? "" : "s") +
-        " left today.");
-    } else {
-      lines.push("Today's free conversion is used. Another is free tomorrow, or buy a pack " +
-        "of conversions that never expire.");
+    var parts = [];
+    if (message) parts.push('<div class="notice info"><strong>' + esc(message) + "</strong></div>");
+    if (!state.may_convert) {
+      parts.push('<div class="notice info"><b>Today\'s free conversion is used.</b> Another is free tomorrow, ' +
+        "or buy a pack of conversions that never expire.</div>");
     }
     var packs = (state.packs || []).map(function (p) {
-      return '<button type="button" data-credits="' + p.credits + '">' + esc(p.label) + "</button>";
+      var inner = p.display
+        ? "<b>" + esc(p.credits) + ' conversions</b><span class="pr">' + esc(p.display) + "</span>" +
+          (p.each ? "<small>" + esc(p.each) + " each</small>" : "")
+        : esc(p.label);
+      return '<button type="button" class="pack" data-credits="' + p.credits + '">' + inner + "</button>";
     }).join("");
     if (packs) {
-      lines.push('<div class="packs">' + packs + "</div>");
-      lines.push('<div class="muted">Paid conversions are kept in this browser, not in an ' +
+      // Open when a purchase is what the customer needs next; tucked away while
+      // they still have a conversion to use. The notice below is always beside
+      // the buttons it is about.
+      parts.push('<details class="buy"' + (state.may_convert ? "" : " open") + "><summary>" +
+        (state.may_convert ? "Need more conversions?" : "Buy a pack") + '</summary><div class="inner">' +
+        '<div class="packs">' + packs + "</div>" +
+        '<p class="legal">Paid conversions are kept in this browser, not in an ' +
         "account. Clearing this site's data loses them. Credits are supplied as soon as " +
         "you pay, so the 14-day right to cancel does not apply to them. " +
-        '<a href="/terms" target="_blank" rel="noopener">Terms of sale</a>.</div>');
+        '<a href="/terms" target="_blank" rel="noopener">Terms of sale</a>.</p></div></details>');
     }
-    billingBox.innerHTML = lines.join("<br>");
+    billingBox.innerHTML = parts.join("");
     Array.prototype.forEach.call(billingBox.querySelectorAll("button[data-credits]"), function (b) {
       b.addEventListener("click", function () { buy(parseInt(b.dataset.credits, 10), b); });
     });
   }
 
   function buy(credits, button) {
-    var original = button.textContent;
+    var original = button.innerHTML;
     button.disabled = true;
     button.textContent = "Opening PayPal\u2026";
     fetch("/api/pay/create", {
@@ -327,7 +355,7 @@
       })
       .catch(function (e) {
         button.disabled = false;
-        button.textContent = original;
+        button.innerHTML = original;
         renderBilling(e.message);
       });
   }
@@ -344,7 +372,7 @@
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
         button.disabled = false;
-        button.textContent = original;
+        button.innerHTML = original;
         if (!res.ok) { renderBilling(res.d.detail || "That payment did not complete"); return; }
         storeToken(res.d.token);
         refreshAllowance().then(function () {
@@ -354,7 +382,7 @@
       })
       .catch(function () {
         button.disabled = false;
-        button.textContent = original;
+        button.innerHTML = original;
         renderBilling("The payment could not be confirmed. Nothing has been added; " +
           "if you were charged, contact us and it will be put right.");
       });

@@ -62,7 +62,7 @@
   h2.sub2 { font-size:13px; color:var(--muted-2); margin:14px 0 8px; font-weight:600; }
 </style>
 </head>
-<body>
+<body class="v2">
 
 <nav class="top">
   <a class="logo" href="/"><img src="/static/brand/mark-on-dark.png" alt="" width="29" height="26" />BTLTech</a>
@@ -76,17 +76,24 @@
 <header class="page">
   <h1>Edit the text that is already in a PDF</h1>
   <p class="sub">Click a line of text, change the words, and save. The document is opened in this browser tab and never uploaded &mdash; there is no server to send it to.</p>
-  <!--IF-BILLING--><p class="sub costs">Free to edit and preview, as many changes as you like, on as many pages as you like.
+  <!--IF-BILLING--><div class="trust"><span>Free to edit and preview</span><span>{{EXPORT_PRICE}} saves the clean copy</span></div>
+  <p class="sub costs">Free to edit and preview, as many changes as you like, on as many pages as you like.
   Saving the clean copy of the finished document costs {{EXPORT_PRICE}}, once for that document.</p><!--/IF-BILLING-->
+  <!--IF-FREE--><div class="trust"><span>Free</span><span>No account</span></div><!--/IF-FREE-->
 </header>
 
 <div id="loading" class="note">Loading the PDF engine&hellip;</div>
 
 <main class="edittext">
   <section class="panel">
+    <div class="cardhead emptyonly">
+      <h2>Open a PDF</h2>
+      <span class="status-pill"><span class="dot on"></span>Stays in your browser</span>
+    </div>
     <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-controls="file" hidden>
+      <svg class="up" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5"/><path d="M7.5 9.5L12 5l4.5 4.5"/><path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/></svg>
       <p><strong class="drag-only">Drag &amp; drop a PDF here</strong><strong class="tap-only">Choose a PDF</strong></p>
-      <p style="margin-top:8px">or <span class="browse">browse your device</span></p>
+      <span class="browse btn-like">Choose a PDF</span>
     </div>
     <input type="file" id="file" accept="application/pdf,.pdf" />
     <p class="trysample" id="trysamplewrap" hidden>
@@ -115,6 +122,26 @@
       </div>
     </div>
   </section>
+
+  <div class="emptyonly willwont">
+    <div class="card">
+      <h3>What it will do</h3>
+      <ul>
+        <li>Replace the text on a line, keeping the font, size, colour, alignment and any underline</li>
+        <li>If the new wording does not fit: move the rest of the line, shrink very slightly, wrap, or move the line to free space</li>
+        <li>Check every edited file before you can save it</li>
+      </ul>
+    </div>
+    <div class="card no">
+      <h3>What it will not do</h3>
+      <ul>
+        <li>Reflow a whole paragraph</li>
+        <li>Edit scanned pages or justified lines</li>
+        <li>Edit Chinese, Japanese, Korean, Arabic or Hebrew text</li>
+        <li>Make an edit that is not safe: it refuses and tells you why, rather than producing a mess</li>
+      </ul>
+    </div>
+  </div>
 
   <aside class="panel">
     <h3>The text you picked</h3>
@@ -149,6 +176,11 @@
     </p>
   </aside>
 </main>
+
+<div id="savebar" class="savebar away" hidden>
+  <span class="savecount"><b id="savecount"></b><span>Ready to save</span></span>
+  <button type="button" id="savego"></button>
+</div>
 
 <section class="more" aria-labelledby="how">
   <h2 id="how">How it works</h2>

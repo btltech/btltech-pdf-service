@@ -31,6 +31,7 @@ import os
 import secrets
 from contextlib import contextmanager
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterator, List, Optional
 
 import config
@@ -49,6 +50,21 @@ class Pack:
     @property
     def label(self) -> str:
         return f"{self.credits} conversions for {config.CURRENCY_SYMBOL}{self.price}"
+
+    @property
+    def display(self) -> str:
+        """The price as the customer reads it, e.g. "£2.00"."""
+        return f"{config.CURRENCY_SYMBOL}{self.price}"
+
+    @property
+    def each(self) -> str:
+        """What one conversion works out at, e.g. "20p" or "£1.25". Arithmetic on the
+        configured price, so it can never disagree with it. Pence only where the
+        currency is pounds; anywhere else it is the plain amount."""
+        unit = Decimal(self.price) / self.credits
+        if config.CURRENCY_SYMBOL == "£" and unit < 1:
+            return f"{int((unit * 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP))}p"
+        return f"{config.CURRENCY_SYMBOL}{unit.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)}"
 
 
 def packs() -> List[Pack]:

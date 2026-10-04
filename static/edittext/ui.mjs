@@ -391,7 +391,7 @@ async function keepEdit() {
   // result off the screen and the customer saw their work vanish - so the kept
   // version goes straight back up beside it.
   await showPage(state.pageIndex);
-  say(`${n} change${plural(n)} kept, and the panel on the right shows all of them together. `
+  say(`${n} change${plural(n)} kept, and the side panel lists all of them together. `
       + "Click another line to change something else, or save when you are done.", "ok");
 }
 
@@ -459,13 +459,28 @@ function save() {
   say("Saved to your downloads. The document never left this tab.", "ok");
 }
 
+/** On a phone the save box sits below the page, out of sight while you edit. This bar keeps
+ *  "N changes kept" and the way to it on screen. It does NOT take the payment itself: it
+ *  scrolls to the save box, where the price and the notice about giving up the 14-day right
+ *  to cancel are, so nobody pays without having been shown them. */
+function renderSaveBar(edits) {
+  const bar = $("savebar");
+  if (!bar) return;
+  if (!edits) { bar.hidden = true; return; }
+  const money = `${state.currency === "GBP" ? "£" : ""}${state.price}`;
+  $("savecount").textContent = edits + (edits === 1 ? " change kept" : " changes kept");
+  $("savego").textContent = state.locked ? `Save · ${money}` : "Save the PDF";
+  bar.hidden = false;
+}
+
 /** Show the right buttons for where the customer is: keep editing, or take it away. */
 function renderActions() {
   const box = $("exportbox");
   if (!box) return;
   const edits = state.edits.length + (state.pending ? 1 : 0);
-  if (!edits) { box.hidden = true; return; }
+  if (!edits) { box.hidden = true; renderSaveBar(0); return; }
   box.hidden = false;
+  renderSaveBar(edits);
   if (!state.locked) {
     box.innerHTML = `<button id="saveclean">Save the PDF</button>`;
     $("saveclean").addEventListener("click", () => {
@@ -494,6 +509,21 @@ function renderActions() {
 }
 
 // --------------------------------------------------------------------- wire ---
+// The bar is only wanted while the save box is out of view (and only on a phone: CSS hides it elsewhere).
+(function wireSaveBar() {
+  const bar = $("savebar"), box = $("exportbox");
+  if (!bar || !box) return;
+  $("savego").addEventListener("click", () => {
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+    const first = box.querySelector("button");
+    if (first) first.focus({ preventScroll: true });
+  });
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((entries) => {
+      for (const e of entries) bar.classList.toggle("away", e.isIntersecting);
+    }, { threshold: 0.4 }).observe(box);
+  }
+})();
 $("file").addEventListener("change", (e) => loadFile(e.target.files[0]));
 // Dragging is not the only way people open a file, and on a phone it is not a
 // way at all: the drop area is also a button, and reachable from the keyboard.

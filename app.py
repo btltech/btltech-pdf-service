@@ -308,7 +308,8 @@ def _return_credit(reservation) -> None:
 
 
 def _packs_payload() -> list:
-    return [{"credits": p.credits, "price": p.price, "label": p.label} for p in billing.packs()]
+    return [{"credits": p.credits, "price": p.price, "label": p.label, "display": p.display, "each": p.each}
+            for p in billing.packs()]
 
 
 @app.get("/api/allowance")

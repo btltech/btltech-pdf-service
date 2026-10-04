@@ -50,7 +50,7 @@
   input[type=color] { width:46px; height:31px; padding:0; background:none; border:1px solid var(--line-strong); border-radius:8px; }
 </style>
 </head>
-<body>
+<body class="v2">
 
 <nav class="top">
   <a class="logo" href="/"><img src="/static/brand/mark-on-dark.png" alt="" width="29" height="26" />BTLTech</a>
@@ -64,6 +64,7 @@
 <header class="page">
   <h1>Edit PDF</h1>
   <p class="sub">Add text, draw or sign, highlight, stamp an image, and reorder or delete pages. Nothing is uploaded &mdash; the document stays in this browser tab.</p>
+  <div class="trust"><span>Free</span><span>No account</span><span>Stays in your browser</span></div>
 </header>
 
 <main class="editor">
@@ -71,25 +72,30 @@
     <div class="panel">
       <h3>Tools</h3>
       <div class="toolbar">
-        <button class="tbtn" data-tool="select">Select</button>
-        <button class="tbtn" data-tool="text">Text</button>
-        <button class="tbtn" data-tool="pen">Draw / sign</button>
-        <button class="tbtn" data-tool="highlight">Highlight</button>
-        <button class="tbtn" data-tool="box">Box</button>
-        <button class="tbtn" data-tool="image">Stamp image</button>
-        <button class="tbtn" data-tool="erase">Erase</button>
+        <button class="tbtn" data-tool="select"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l14 8-6 2-2 6z"/></svg><span>Select</span></button>
+        <button class="tbtn" data-tool="text"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 6V4h14v2"/><path d="M12 4v16"/><path d="M9 20h6"/></svg><span>Text</span></button>
+        <button class="tbtn" data-tool="pen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17.5c2.2-1.5 3.6-5.6 5.3-5.6 1.4 0 .6 4.4 2.1 4.4s2-2.6 3.3-2.6"/><path d="M15.5 4.5l3 3L11 15l-3.5.7.7-3.6z"/></svg><span>Draw / sign</span></button>
+        <button class="tbtn" data-tool="highlight"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M14 4l6 6-8 8H6v-6z"/></svg><span>Highlight</span></button>
+        <button class="tbtn" data-tool="box"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/></svg><span>Box</span></button>
+        <button class="tbtn" data-tool="image"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg><span>Stamp image</span></button>
+        <button class="tbtn" data-tool="erase"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16l9-9 7 7-5 5H8z"/><path d="M8 20h12"/></svg><span>Erase</span></button>
       </div>
-      <div class="row">
-        <label>Colour</label><input type="color" id="inkColor" value="#e02020" />
-        <label>Weight</label><input type="number" id="inkWidth" value="2" min="1" max="20" />
-        <label>Text size</label><input type="number" id="textSize" value="14" min="6" max="96" />
+      <div class="opts opt-ink">
+        <span class="optlab">Options</span>
+        <div class="two">
+          <div class="fld"><label for="inkColor">Colour</label><input type="color" id="inkColor" value="#e02020" /></div>
+          <div class="fld f-weight"><label for="inkWidth">Weight</label><input type="number" id="inkWidth" value="2" min="1" max="20" /></div>
+        </div>
       </div>
-      <div class="row">
-        <label for="textValue">Text</label>
-        <input type="text" id="textValue" placeholder="type, then click the page" />
+      <div class="opts opt-text">
+        <div class="fld"><label for="textSize">Text size</label><input type="number" id="textSize" value="14" min="6" max="96" /></div>
+        <div class="fld"><label for="textValue">Text</label><input type="text" id="textValue" placeholder="type, then click the page" /></div>
       </div>
-      <div class="row"><label for="imageInput">Signature image (PNG or JPG)</label></div>
-      <input type="file" id="imageInput" class="visible" accept="image/png,image/jpeg" />
+      <div class="opts opt-image">
+        <span class="optlab">Signature image (PNG or JPG)</span>
+        <label class="pickfile" for="imageInput">Choose an image</label>
+        <input type="file" id="imageInput" accept="image/png,image/jpeg" />
+      </div>
       <div class="button-row">
         <button class="ghost small" id="undoBtn">Undo</button>
         <button class="ghost small" id="clearBtn">Clear marks</button>
@@ -111,16 +117,28 @@
       <span class="small muted" id="zoomLabel">100%</span>
       <button class="ghost small" id="zoomIn">+</button>
       <button class="small" id="saveBtn" disabled>Download PDF</button>
+      <span class="savehint">Open a PDF to turn this on</span>
     </div>
 
+    <div class="cardhead emptyonly">
+      <h2>Open a PDF</h2>
+      <span class="status-pill"><span class="dot on"></span>Stays in your browser</span>
+    </div>
     <div id="dropzone" class="dropzone">
+      <svg class="up" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V5"/><path d="M7.5 9.5L12 5l4.5 4.5"/><path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/></svg>
       <p><strong>Drop a PDF here</strong> to start editing</p>
-      <p style="margin-top:8px">or <span class="browse">browse your device</span></p>
+      <span class="browse btn-like">Choose a PDF</span>
       <p class="small muted" style="margin-top:12px">Your file never leaves this device.</p>
     </div>
     <input type="file" id="fileInput" accept=".pdf,application/pdf" />
     <div id="pages"></div>
   </section>
+
+  <div class="emptyonly featrow">
+    <div class="card"><h3>Add to the page</h3><p>Type text, draw, highlight, or draw a box anywhere on a page.</p></div>
+    <div class="card"><h3>Sign it</h3><p>Write your signature with a finger or mouse, or stamp a picture of one.</p></div>
+    <div class="card"><h3>Reorder pages</h3><p>Move pages earlier or later, or leave pages out of the saved file.</p></div>
+  </div>
 </main>
 
 <section class="more" aria-labelledby="faq">

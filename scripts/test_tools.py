@@ -247,8 +247,8 @@ check("it does not claim a single editor never uploads, now there are two of eac
       "The editor never uploads anything at all" not in home)
 check("it names which tools do send the file to the server",
       "PDF to Word and the page tools convert your file on this server" in home)
-check("the four cards are laid out as a block, not three and a gap",
-      'class="grid pairs"' in home)
+check("the four cards are laid out as a block, not three and a gap: one lead card across the top, three beneath",
+      'class="hubgrid"' in home and home.count('class="tool') == 4 and 'class="tool feature"' in home)
 
 print("\n=== a deployment reaches people ===")
 r = client.get("/static/app.css")

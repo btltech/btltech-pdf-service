@@ -99,7 +99,7 @@ console.log("\n=== opening a document ===");
 check("there is a visible way to choose a file",
   await page.evaluate(() => {
     const dz = document.getElementById("dropzone");
-    return !!dz && getComputedStyle(dz).display !== "none" && /browse/i.test(dz.textContent);
+    return !!dz && getComputedStyle(dz).display !== "none" && /browse|choose/i.test(dz.textContent);
   }));
 // On a touch screen there is nothing to drag from, so the wording must not lead
 // with dragging.

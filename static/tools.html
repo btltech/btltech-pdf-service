@@ -22,7 +22,7 @@
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="stylesheet" href="/static/app.css" />
 </head>
-<body>
+<body class="v2">
 
 <nav class="top">
   <a class="logo" href="/"><img src="/static/brand/mark-on-dark.png" alt="" width="29" height="26" />BTLTech</a>
@@ -36,161 +36,161 @@
 <header class="page">
   <h1>Page tools</h1>
   <p class="sub">Nine ways to change a PDF, without a desktop application. Each one finishes in milliseconds.</p>
+  <div class="trust"><span>Free</span><span>No limit</span><span>Deleted after download</span></div>
 </header>
 
-<main class="grid">
-
-  <section class="card tool" data-endpoint="/api/tools/merge" data-field="files" data-name="merged.pdf">
+<main class="tools-v2">
+<nav class="picker" aria-label="Choose a tool">
+  <div class="pickgroup"><span class="optlab">Combine and split</span><div class="pick3"><a class="pickt" href="#merge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v6a5 5 0 0 0 5 5h5"/><path d="M17 4v6"/><path d="M14 13l3 2-3 2"/></svg><span>Merge PDFs</span></a><a class="pickt" href="#extract"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="11" height="14" rx="1.5"/><path d="M15 9h5"/><path d="M17 6l3 3-3 3"/></svg><span>Extract pages</span></a><a class="pickt" href="#delete"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="12" height="16" rx="1.5"/><path d="M9 9l4 4M13 9l-4 4"/></svg><span>Delete pages</span></a></div></div>
+  <div class="pickgroup"><span class="optlab">Fix and tidy</span><div class="pick3"><a class="pickt" href="#rotate"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg><span>Rotate pages</span></a><a class="pickt" href="#compress"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l4 4-4 4"/><path d="M19 8l-4 4 4 4"/><path d="M12 5v14"/></svg><span>Compress</span></a><a class="pickt" href="#numbers"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="14" height="18" rx="1.5"/><path d="M8 16h6"/><path d="M8 9h3"/></svg><span>Page numbers</span></a></div></div>
+  <div class="pickgroup"><span class="optlab">Mark and protect</span><div class="pick3"><a class="pickt" href="#watermark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="14" height="18" rx="1.5"/><path d="M7 15l8-6"/></svg><span>Watermark</span></a><a class="pickt" href="#protect"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>Password protect</span></a><a class="pickt" href="#unlock"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg><span>Remove password</span></a></div></div>
+</nav>
+  <div class="pgroup" aria-labelledby="g-combine">
+    <h2 id="g-combine">Combine and split</h2>
+    <div class="tcards">
+  <section id="merge" class="card tool" data-endpoint="/api/tools/merge" data-field="files" data-name="merged.pdf">
     <h2>Merge PDFs</h2>
     <p class="card-sub">Join two or more PDFs into one, in the order you select them.</p>
-    <label class="pick dropzone">Drop PDFs here or <span class="browse">browse</span>
+    <label class="pick dropzone"><span>Drop PDFs here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" multiple />
     </label>
     <div class="picked small muted"></div>
     <div class="button-row"><button class="run">Merge</button></div>
     <div class="notice hidden"></div>
   </section>
-
-  <section class="card tool" data-endpoint="/api/tools/split" data-name="extracted.pdf">
+  <section id="extract" class="card tool" data-endpoint="/api/tools/split" data-name="extracted.pdf">
     <h2>Extract pages</h2>
     <p class="card-sub">Pull out the pages you want as a new PDF, or save each one separately as a ZIP.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" />
     </label>
     <div class="picked small muted"></div>
     <div class="row">
-      <label>Pages</label>
-      <input type="text" name="pages" value="all" placeholder="all, 3 or 1-4,7" />
+      <label class="fld"><span>Pages</span><input type="text" name="pages" value="all" placeholder="all, 3 or 1-4,7" /></label>
       <label class="check"><input type="checkbox" name="separate" /> one file per page (ZIP)</label>
     </div>
     <div class="button-row"><button class="run">Extract</button></div>
     <div class="notice hidden"></div>
   </section>
-
-  <section class="card tool" data-endpoint="/api/tools/delete-pages" data-name="pages-deleted.pdf">
+  <section id="delete" class="card tool" data-endpoint="/api/tools/delete-pages" data-name="pages-deleted.pdf">
     <h2>Delete pages</h2>
     <p class="card-sub">Remove the pages you no longer want, keeping the rest in order.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" />
     </label>
     <div class="picked small muted"></div>
     <div class="row">
-      <label>Pages to delete</label>
-      <input type="text" name="pages" placeholder="e.g. 2 or 1,5-7" />
+      <label class="fld"><span>Pages to delete</span><input type="text" name="pages" placeholder="e.g. 2 or 1,5-7" /></label>
     </div>
     <div class="button-row"><button class="run">Delete</button></div>
     <div class="notice hidden"></div>
   </section>
-
-  <section class="card tool" data-endpoint="/api/tools/rotate" data-name="rotated.pdf">
+    </div>
+  </div>
+  <div class="pgroup" aria-labelledby="g-fix">
+    <h2 id="g-fix">Fix and tidy</h2>
+    <div class="tcards">
+  <section id="rotate" class="card tool" data-endpoint="/api/tools/rotate" data-name="rotated.pdf">
     <h2>Rotate pages</h2>
     <p class="card-sub">Fix sideways scans, or turn a single page the right way up.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" />
     </label>
     <div class="picked small muted"></div>
     <div class="row">
-      <label>Angle</label>
-      <select name="angle">
+      <label class="fld"><span>Angle</span><select name="angle">
         <option value="90">90&deg; clockwise</option>
         <option value="180">180&deg;</option>
         <option value="270">90&deg; anticlockwise</option>
-      </select>
-      <label>Pages</label>
-      <input type="text" name="pages" value="all" placeholder="all or 1-3" />
+      </select></label>
+      <label class="fld"><span>Pages</span><input type="text" name="pages" value="all" placeholder="all or 1-3" /></label>
     </div>
     <div class="button-row"><button class="run">Rotate</button></div>
     <div class="notice hidden"></div>
   </section>
-
-  <section class="card tool" data-endpoint="/api/tools/compress" data-name="compressed.pdf">
+  <section id="compress" class="card tool" data-endpoint="/api/tools/compress" data-name="compressed.pdf">
     <h2>Compress</h2>
     <p class="card-sub">Shrink a heavy PDF by re-encoding oversized images. Text stays untouched and selectable.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" />
     </label>
     <div class="picked small muted"></div>
     <div class="row">
-      <label>Strength</label>
-      <select name="level">
+      <label class="fld"><span>Strength</span><select name="level">
         <option value="light">Light &mdash; keep quality high</option>
         <option value="balanced" selected>Balanced &mdash; recommended</option>
         <option value="strong">Strong &mdash; smallest file</option>
-      </select>
+      </select></label>
     </div>
     <div class="button-row"><button class="run">Compress</button></div>
     <div class="notice hidden"></div>
   </section>
-
-  <section class="card tool" data-endpoint="/api/tools/watermark" data-name="watermarked.pdf">
-    <h2>Watermark</h2>
-    <p class="card-sub">Stamp faint diagonal text across every page &mdash; DRAFT, CONFIDENTIAL, your company name.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
-      <input type="file" accept=".pdf,application/pdf" />
-    </label>
-    <div class="picked small muted"></div>
-    <div class="row">
-      <label>Text</label>
-      <input type="text" name="text" value="CONFIDENTIAL" />
-      <label>Colour</label>
-      <select name="colour">
-        <option value="grey" selected>Grey</option>
-        <option value="black">Black</option>
-        <option value="red">Red</option>
-        <option value="blue">Blue</option>
-      </select>
-    </div>
-    <div class="row">
-      <label>Angle</label><input type="number" name="angle" value="45" min="-180" max="180" step="45" />
-      <label>Opacity</label><input type="number" name="opacity" value="0.15" min="0.02" max="1" step="0.05" />
-      <label>Size</label><input type="number" name="font_size" value="48" min="6" max="200" />
-    </div>
-    <div class="button-row"><button class="run">Add watermark</button></div>
-    <div class="notice hidden"></div>
-  </section>
-
-  <section class="card tool" data-endpoint="/api/tools/page-numbers" data-name="numbered.pdf">
+  <section id="numbers" class="card tool" data-endpoint="/api/tools/page-numbers" data-name="numbered.pdf">
     <h2>Page numbers</h2>
     <p class="card-sub">Add &ldquo;Page 1 of 12&rdquo; style numbering to every page.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" />
     </label>
     <div class="picked small muted"></div>
     <div class="row">
-      <label>Position</label>
-      <select name="position">
+      <label class="fld"><span>Position</span><select name="position">
         <option value="bottom-centre" selected>Bottom centre</option>
         <option value="bottom-right">Bottom right</option>
         <option value="bottom-left">Bottom left</option>
         <option value="top-right">Top right</option>
         <option value="top-centre">Top centre</option>
         <option value="top-left">Top left</option>
-      </select>
-      <label>Start at</label><input type="number" name="start" value="1" min="0" />
-      <label>Size</label><input type="number" name="font_size" value="10" min="6" max="48" />
+      </select></label>
+      <label class="fld"><span>Start at</span><input type="number" name="start" value="1" min="0" /></label>
+      <label class="fld"><span>Size</span><input type="number" name="font_size" value="10" min="6" max="48" /></label>
     </div>
     <div class="row">
-      <label>Format</label>
-      <input type="text" name="label_format" value="Page {n} of {total}" />
+      <label class="fld"><span>Format</span><input type="text" name="label_format" value="Page {n} of {total}" /></label>
     </div>
     <div class="button-row"><button class="run">Add numbers</button></div>
     <div class="notice hidden"></div>
   </section>
-
-  <section class="card tool" data-endpoint="/api/tools/protect" data-name="protected.pdf">
-    <h2>Password protect</h2>
-    <p class="card-sub">Encrypt with AES-256 and decide what the reader may do with the document.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+    </div>
+  </div>
+  <div class="pgroup" aria-labelledby="g-mark">
+    <h2 id="g-mark">Mark and protect</h2>
+    <div class="tcards">
+  <section id="watermark" class="card tool" data-endpoint="/api/tools/watermark" data-name="watermarked.pdf">
+    <h2>Watermark</h2>
+    <p class="card-sub">Stamp faint diagonal text across every page &mdash; DRAFT, CONFIDENTIAL, your company name.</p>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" />
     </label>
     <div class="picked small muted"></div>
     <div class="row">
-      <label>Password</label>
-      <input type="password" name="password" placeholder="at least 4 characters" />
+      <label class="fld"><span>Text</span><input type="text" name="text" value="CONFIDENTIAL" /></label>
+      <label class="fld"><span>Colour</span><select name="colour">
+        <option value="grey" selected>Grey</option>
+        <option value="black">Black</option>
+        <option value="red">Red</option>
+        <option value="blue">Blue</option>
+      </select></label>
     </div>
     <div class="row">
-      <label>Owner password</label>
-      <input type="password" name="owner_password" placeholder="optional" />
+      <label class="fld"><span>Angle</span><input type="number" name="angle" value="45" min="-180" max="180" step="45" /></label>
+      <label class="fld"><span>Opacity</span><input type="number" name="opacity" value="0.15" min="0.02" max="1" step="0.05" /></label>
+      <label class="fld"><span>Size</span><input type="number" name="font_size" value="48" min="6" max="200" /></label>
+    </div>
+    <div class="button-row"><button class="run">Add watermark</button></div>
+    <div class="notice hidden"></div>
+  </section>
+  <section id="protect" class="card tool" data-endpoint="/api/tools/protect" data-name="protected.pdf">
+    <h2>Password protect</h2>
+    <p class="card-sub">Encrypt with AES-256 and decide what the reader may do with the document.</p>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
+      <input type="file" accept=".pdf,application/pdf" />
+    </label>
+    <div class="picked small muted"></div>
+    <div class="row">
+      <label class="fld"><span>Password</span><input type="password" name="password" placeholder="at least 4 characters" /></label>
+    </div>
+    <div class="row">
+      <label class="fld"><span>Owner password</span><input type="password" name="owner_password" placeholder="optional" /></label>
     </div>
     <div class="row">
       <label class="check"><input type="checkbox" name="allow_printing" checked /> allow printing</label>
@@ -199,22 +199,21 @@
     <div class="button-row"><button class="run">Protect</button></div>
     <div class="notice hidden"></div>
   </section>
-
-  <section class="card tool" data-endpoint="/api/tools/unlock" data-name="unlocked.pdf">
+  <section id="unlock" class="card tool" data-endpoint="/api/tools/unlock" data-name="unlocked.pdf">
     <h2>Remove password</h2>
     <p class="card-sub">Save a protected PDF without its password, so it opens anywhere. You must know the password.</p>
-    <label class="pick dropzone">Drop a PDF here or <span class="browse">browse</span>
+    <label class="pick dropzone"><span>Drop a PDF here</span><span class="browse btn-like">Browse</span>
       <input type="file" accept=".pdf,application/pdf" />
     </label>
     <div class="picked small muted"></div>
     <div class="row">
-      <label>Current password</label>
-      <input type="password" name="password" />
+      <label class="fld"><span>Current password</span><input type="password" name="password" /></label>
     </div>
     <div class="button-row"><button class="run">Remove password</button></div>
     <div class="notice hidden"></div>
   </section>
-
+    </div>
+  </div>
 </main>
 
 <footer class="foot">

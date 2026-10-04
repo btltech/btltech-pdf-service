@@ -230,6 +230,18 @@ body = r.json() if r.status_code == 200 else {}
 check("it reports that billing is on", body.get("billing") is True, str(body)[:90])
 check("it names a currency", bool(body.get("currency")), str(body.get("currency")))
 check("it offers the configured packs", len(body.get("packs", [])) == 2, str(body.get("packs"))[:90])
+_sym = config.CURRENCY_SYMBOL
+check("each pack carries its price as the customer reads it, from the configured price",
+      all(p["display"] == f"{_sym}{p['price']}" for p in body.get("packs", [])), str(body.get("packs"))[:120])
+check("and what one conversion works out at (arithmetic on that price, never a separate figure)",
+      [p["each"] for p in body.get("packs", [])] == [
+          (f"{int(round(float(q.price) / q.credits * 100))}p" if _sym == "\u00a3" and float(q.price) / q.credits < 1
+           else f"{_sym}{float(q.price) / q.credits:.2f}") for q in billing.packs()],
+      str([p.get("each") for p in body.get("packs", [])]))
+_p = billing.Pack
+check("per-conversion price: pence while under a pound, pounds and pence after",
+      (_p(10, "2.00").each, _p(25, "4.00").each, _p(4, "10.00").each, _p(1, "2.50").each)
+      == (("20p", "16p", "\u00a32.50", "\u00a32.50") if _sym == "\u00a3" else _p(10, "2.00").each and (_p(10, "2.00").each, _p(25, "4.00").each, _p(4, "10.00").each, _p(1, "2.50").each)))
 
 r = client.post("/api/pay/create", json={"credits": 10})
 check("with no PayPal credentials, buying is unavailable rather than broken",

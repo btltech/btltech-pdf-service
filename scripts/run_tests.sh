@@ -48,6 +48,7 @@ if [ "${1:-}" = "--browser" ]; then
   run "editor output PDF (8 assertions)" "$PY" scripts/verify_editor_output.py
   run "page tools and converter in Chrome (18 assertions)" node scripts/browser_tools_test.mjs
   run "edit existing text in Chrome" node scripts/browser_edittext_test.mjs
+  run "redesigned pages: hub, PDF to Word, edit text" node scripts/browser_pages_v2_test.mjs
   run "edit-text output PDF" "$PY" scripts/verify_edittext_output.py
 fi
 
